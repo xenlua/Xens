@@ -417,7 +417,7 @@ function Update:StartLoad()
 	SubtitleLoader.TextTransparency = 0;
 	
 	-- Typewriter effect for subtitle
-	local subtitleText = "Initializing Advanced Hub System...";
+	local subtitleText = "Initializing...";
 	spawn(function()
 		wait(1);
 		for i = 1, #subtitleText do
