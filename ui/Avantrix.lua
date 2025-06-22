@@ -4,6 +4,8 @@ local ImportGlobals
 -- Holds direct closure data (defining this before the DOM tree for line debugging etc)
 local ClosureBindings = {
     function()local wax,script,require=ImportGlobals(1)local ImportGlobals return (function(...)wait(1)
+
+-- ===== UTILITY FUNCTIONS =====
 function generateRandomString(length)
     local charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-_=+[]{}|;:',.<>?/`~"
     local randomString = ""
@@ -17,27 +19,30 @@ function generateRandomString(length)
     return randomString
 end
 
+-- ===== SERVICE IMPORTS =====
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
 
+-- ===== MODULE IMPORTS =====
 local ElementsTable = require(script.elements)
 local Tools = require(script.tools)
 local Components = script.components
 
+-- ===== TOOL FUNCTIONS =====
 local Create = Tools.Create
 local AddConnection = Tools.AddConnection
 local AddScrollAnim = Tools.AddScrollAnim
 local isMobile = Tools.isMobile()
 local CurrentThemeProps = Tools.GetPropsCurrentTheme()
 
+-- ===== DRAGGABLE FUNCTIONALITY =====
 local function MakeDraggable(DragPoint, Main)
-	-- if isMobile then return end
+	-- Enhanced draggable with better mobile support
 	local Dragging, DragInput, MousePos, FramePos = false
+	
 	AddConnection(DragPoint.InputBegan, function(Input)
-		if
-			Input.UserInputType == Enum.UserInputType.MouseButton1
-			or Input.UserInputType == Enum.UserInputType.Touch
-		then
+		if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
 			Dragging = true
 			MousePos = Input.Position
 			FramePos = Main.Position
@@ -49,41 +54,43 @@ local function MakeDraggable(DragPoint, Main)
 			end)
 		end
 	end)
+	
 	AddConnection(DragPoint.InputChanged, function(Input)
 		if Input.UserInputType == Enum.UserInputType.MouseMovement then
 			DragInput = Input
 		end
 	end)
+	
 	AddConnection(UserInputService.InputChanged, function(Input)
-		if
-			(Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch)
-			and Dragging
-		then
+		if (Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch) and Dragging then
 			local Delta = Input.Position - MousePos
-			Main.Position =
-				UDim2.new(FramePos.X.Scale, FramePos.X.Offset + Delta.X, FramePos.Y.Scale, FramePos.Y.Offset + Delta.Y)
+			Main.Position = UDim2.new(FramePos.X.Scale, FramePos.X.Offset + Delta.X, FramePos.Y.Scale, FramePos.Y.Offset + Delta.Y)
 		end
 	end)
 end
 
+-- ===== MAIN LIBRARY =====
 local Library = {
 	Window = nil,
 	Flags = {},
 	Signals = {},
 	ToggleBind = nil,
+	Version = "2.0.0", -- Added version tracking
+	Author = "Xenon Team", -- Added author info
 }
 
-
-
+-- ===== GUI CREATION =====
 local GUI = Create("ScreenGui", {
 	Name = generateRandomString(16),
-	Parent = gethui(), --game.Players.LocalPlayer.PlayerGui,
+	Parent = gethui(),
 	ResetOnSpawn = false,
 	ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 })
 
+-- Initialize notification system
 require(Components.notif):Init(GUI)
 
+-- ===== LIBRARY METHODS =====
 function Library:SetTheme(themeName)
 	Tools.SetTheme(themeName)
 end
@@ -97,24 +104,40 @@ function Library:AddTheme(themeName, themeProps)
 end
 
 function Library:IsRunning()
-	return GUI.Parent == gethui() -- game.Players.LocalPlayer.PlayerGui -- testing ver with playergui
+	return GUI.Parent == gethui()
 end
 
-task.spawn(function()
-	while Library:IsRunning() do
-		task.wait()
+-- Enhanced cleanup system
+function Library:Destroy()
+	if GUI then
+		GUI:Destroy()
 	end
 	for i, Connection in pairs(Tools.Signals) do
-		Connection:Disconnect()
+		if Connection and Connection.Connected then
+			Connection:Disconnect()
+		end
 	end
+	table.clear(Tools.Signals)
+	table.clear(self.Flags)
+	table.clear(self.Signals)
+end
+
+-- Background cleanup task
+task.spawn(function()
+	while Library:IsRunning() do
+		task.wait(1) -- Check every second instead of every frame
+	end
+	Library:Destroy()
 end)
 
+-- ===== ELEMENTS SYSTEM =====
 local Elements = {}
 Elements.__index = Elements
 Elements.__namecall = function(Table, Key, ...)
 	return Elements[Key](...)
 end
 
+-- Dynamic element registration
 for _, ElementComponent in ipairs(ElementsTable) do
 	assert(ElementComponent.__type, "ElementComponent missing __type")
 	assert(type(ElementComponent.New) == "function", "ElementComponent missing New function")
@@ -123,7 +146,7 @@ for _, ElementComponent in ipairs(ElementsTable) do
 		ElementComponent.Container = self.Container
 		ElementComponent.Type = self.Type
 		ElementComponent.ScrollFrame = self.ScrollFrame
-		ElementComponent.Library = Library -- Assign Library correctly
+		ElementComponent.Library = Library
 
 		return ElementComponent:New(Idx, Config)
 	end
@@ -131,11 +154,11 @@ end
 
 Library.Elements = Elements
 
+-- ===== ENHANCED CALLBACK SYSTEM =====
 function Library:Callback(Callback, ...)
 	local success, result = pcall(Callback, ...)
 
 	if success then
-		-- print(`Callback executed successfully!`)
 		return result
 	else
 		local errorMessage = tostring(result)
@@ -147,56 +170,67 @@ function Library:Callback(Callback, ...)
 			errorInfo = errorInfo .. `Occurred on line: {errorLine}\n`
 		end
 
-		errorInfo = errorInfo
-			.. `Possible Fix: Please check the function implementation for potential issues such as invalid arguments or logic errors at the indicated line number.`
-		print(errorInfo)
+		errorInfo = errorInfo .. `Possible Fix: Please check the function implementation for potential issues such as invalid arguments or logic errors at the indicated line number.`
+		warn(errorInfo) -- Changed from print to warn for better visibility
 	end
 end
 
+-- ===== NOTIFICATION SYSTEM =====
 function Library:Notification(titleText, descriptionText, duration)
-	require(Components.notif):ShowNotification(titleText, descriptionText, duration)
+	require(Components.notif):ShowNotification(titleText, descriptionText, duration or 5)
 end
 
+-- ===== DIALOG SYSTEM =====
 function Library:Dialog(config)
     return require(Components.dialog):Create(config, self.LoadedWindow)
 end
 
+-- ===== MAIN WINDOW CREATION =====
 function Library:Load(cfgs)
-
 	cfgs = cfgs or {}
-	cfgs.Title = cfgs.Title or "Window"
+	cfgs.Title = cfgs.Title or "Xentix UI Library"
 	cfgs.ToggleButton = cfgs.ToggleButton or ""
 	cfgs.BindGui = cfgs.BindGui or Enum.KeyCode.RightControl
+	cfgs.Size = cfgs.Size or UDim2.new(0, 650, 0, 400) -- Added customizable size
+	cfgs.Position = cfgs.Position or UDim2.new(0.5, 0, 0.3, 0) -- Added customizable position
 
 	if Library.Window then
-		print("Cannot create more than one window.")
-		GUI:Destroy()
+		warn("Cannot create more than one window.")
+		return
 	end
 	
 	Library.Window = GUI
 
+	-- ===== MAIN CANVAS GROUP =====
 	local canvas_group = Create("CanvasGroup", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		-- BackgroundColor3 = Color3.fromRGB(9, 9, 9),
 		ThemeProps = {
 			BackgroundColor3 = "maincolor",
 		},
-		Position = UDim2.new(0.5, 0, 0.3, 0),
-		Size = UDim2.new(0, 650, 0, 400),
+		Position = cfgs.Position,
+		Size = cfgs.Size,
 		Parent = GUI,
 		Visible = false
 	}, {
 		Create("UICorner", {
 			CornerRadius = UDim.new(0, 6),
 		}),
+		Create("UIStroke", { -- Added border for better visual
+			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+			ThemeProps = {
+				Color = "bordercolor",
+			},
+			Thickness = 1,
+		}),
 	})
 
-	-- shared.Window = canvas_group
-
+	-- Mobile optimization
 	if isMobile then
-		canvas_group.Size = UDim2.new(0.8, 0, 0.8, 0)
+		canvas_group.Size = UDim2.new(0.9, 0, 0.85, 0) -- Better mobile sizing
+		canvas_group.Position = UDim2.new(0.5, 0, 0.5, 0)
 	end
 
+	-- ===== TOGGLE BUTTON =====
 	local togglebtn = Create("ImageButton", {
 		AnchorPoint = Vector2.new(0.5, 0),
 		AutoButtonColor = false,
@@ -219,30 +253,22 @@ function Library:Load(cfgs)
 			Enabled = true,
 			LineJoinMode = Enum.LineJoinMode.Round,
 			Thickness = 1,
-			Archivable = true,
 		}),
 	})
 
+	-- ===== ENHANCED TOGGLE FUNCTIONALITY =====
 	local function ToggleVisibility()
 		local isVisible = canvas_group.Visible
 		local endPosition = isVisible and UDim2.new(0.5, 0, -1, 0) or UDim2.new(0.5, 0, 0.5, 0)
-		local fadeTo = isVisible and 1 or 0
 	
-		local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut)
+		local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.InOut) -- Enhanced easing
 	
 		local positionTween = TweenService:Create(canvas_group, tweenInfo, { Position = endPosition })
-		-- local fadeTween = TweenService:Create(canvas_group, tweenInfo, { BackgroundTransparency = fadeTo })
-		-- local toggleFadeTween = TweenService:Create(togglebtn, tweenInfo, { BackgroundTransparency = fadeTo })
-		-- local toggleFadeSTween = TweenService:Create(togglebtn.UIStroke, tweenInfo, { Transparency = fadeTo })
 	
 		canvas_group.Visible = true
 		togglebtn.Visible = false
 	
 		positionTween:Play()
-		-- fadeTween:Play()
-		-- toggleFadeTween:Play()
-		-- toggleFadeSTween:Play()
-		
 	
 		positionTween.Completed:Connect(function()
 			if isVisible then
@@ -252,9 +278,10 @@ function Library:Load(cfgs)
 		end)
 	end
 
+	-- Initial toggle
 	ToggleVisibility()
-	-- ToggleVisibility()
 
+	-- Event connections
 	MakeDraggable(togglebtn, togglebtn)
 	AddConnection(togglebtn.MouseButton1Click, ToggleVisibility)
 	AddConnection(UserInputService.InputBegan, function(value)
@@ -263,6 +290,7 @@ function Library:Load(cfgs)
 		end
 	end)
 
+	-- ===== TOP FRAME (TITLE BAR) =====
 	local top_frame = Create("Frame", {
 		ThemeProps = {
 			BackgroundColor3 = "maincolor",
@@ -281,6 +309,7 @@ function Library:Load(cfgs)
 		}),
 	})
 
+	-- ===== TITLE LABEL =====
 	local title = Create("TextLabel", {
 		Font = Enum.Font.GothamMedium,
 		RichText = true,
@@ -299,6 +328,7 @@ function Library:Load(cfgs)
 		Parent = top_frame,
 	})
 
+	-- ===== WINDOW CONTROLS =====
 	local minimizebtn = Create("TextButton", {
 		Text = "",
 		BackgroundTransparency = 1,
@@ -321,7 +351,7 @@ function Library:Load(cfgs)
 			Position = UDim2.new(0.5, 0, 0.5, 0),
 			Size = UDim2.new(1, -10, 1, -10),
 			ThemeProps = {
-				BackgroundColor3 = "maincolor",
+				ImageColor3 = "titlecolor", -- Added theme support for icons
 			},
 			BorderSizePixel = 0,
 			ZIndex = 11,
@@ -350,19 +380,20 @@ function Library:Load(cfgs)
 			Position = UDim2.new(0.5, 0, 0.5, 0),
 			Size = UDim2.new(1, -10, 1, -10),
 			ThemeProps = {
-				BackgroundColor3 = "maincolor",
+				ImageColor3 = "titlecolor", -- Added theme support for icons
 			},
 			BorderSizePixel = 0,
 			ZIndex = 11,
 		}),
 	})
 
+	-- Button event connections
 	AddConnection(minimizebtn.MouseButton1Click, ToggleVisibility)
 	AddConnection(closebtn.MouseButton1Click, function()
-		canvas_group:Destroy()
-		togglebtn:Destroy()
+		Library:Destroy() -- Use enhanced destroy method
 	end)
 
+	-- ===== TAB FRAME (SIDEBAR) =====
 	local tab_frame = Create("Frame", {
 		BackgroundTransparency = 1,
 		ThemeProps = {
@@ -376,7 +407,6 @@ function Library:Load(cfgs)
 	}, {
 		Create("UIStroke", {
 			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-			-- Color = Color3.fromRGB(39, 39, 42),
 			ThemeProps = {
 				Color = "bordercolor",
 			},
@@ -384,6 +414,7 @@ function Library:Load(cfgs)
 		}),
 	})
 
+	-- ===== TAB HOLDER (SCROLLABLE) =====
 	local TabHolder = Create("ScrollingFrame", {
 		ThemeProps = {
 			ScrollBarImageColor3 = "scrollcolor",
@@ -406,35 +437,62 @@ function Library:Load(cfgs)
 		}),
 	})
 
+	-- Auto-resize canvas
 	AddConnection(TabHolder.UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"), function()
 		TabHolder.CanvasSize = UDim2.new(0, 0, 0, TabHolder.UIListLayout.AbsoluteContentSize.Y + 28)
 	end)
 
 	AddScrollAnim(TabHolder)
 
+	-- ===== CONTAINER FOLDER =====
 	local containerFolder = Create("Folder", {
 		Parent = canvas_group,
 	})
 
+	-- Make draggable (desktop only)
 	if not isMobile then
 		MakeDraggable(top_frame, canvas_group)
 	end
 
 	Library.LoadedWindow = canvas_group
 
+	-- ===== TAB SYSTEM =====
 	local Tabs = {}
-
 	local TabModule = require(Components.tab):Init(containerFolder)
+	
 	function Tabs:AddTab(title)
 		return TabModule:New(title, TabHolder)
 	end
+	
 	function Tabs:SelectTab(Tab)
 		Tab = Tab or 1
 		TabModule:SelectTab(Tab)
 	end
 
+	-- ===== ENHANCED METHODS =====
+	function Tabs:GetCurrentTab()
+		return TabModule.SelectedTab
+	end
+
+	function Tabs:GetTabCount()
+		return TabModule.TabCount
+	end
+
+	function Tabs:RemoveTab(tabIndex)
+		if TabModule.Tabs[tabIndex] then
+			TabModule:CleanupTab(tabIndex)
+		end
+	end
+
+	-- Auto-select first tab if available
+	if TabModule.TabCount > 0 then
+		Tabs:SelectTab(1)
+	end
+
 	return Tabs
 end
+
+-- ===== LIBRARY RETURN =====
 return Library
 
 end)() end,
@@ -3176,11 +3234,13 @@ local RunService = game:GetService("RunService")
 
 local tools = { Signals = {} }
 
+-- ===== ENHANCED THEME SYSTEM =====
 local themes = loadstring(game:HttpGet("https://raw.githubusercontent.com/Just3itx/3itx-UI-LIB/refs/heads/main/themes"))()
 
 local currentTheme = themes.default
 local themedObjects = {}
 
+-- Enhanced theme management
 function tools.SetTheme(themeName)
 	if themes[themeName] then
 		currentTheme = themes[themeName]
@@ -3193,6 +3253,7 @@ function tools.SetTheme(themeName)
 				end
 			end
 		end
+		print("Theme changed to:", themeName) -- Debug info
 	else
 		warn("Theme not found: " .. themeName)
 	end
@@ -3204,30 +3265,43 @@ end
 
 function tools.AddTheme(themeName, themeProps)
 	themes[themeName] = themeProps
+	print("Theme added:", themeName) -- Debug info
 end
 
+-- ===== ENHANCED MOBILE DETECTION =====
 function tools.isMobile()
-    return UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled and not UserInputService.MouseEnabled
-	-- return true
+    local isTouchDevice = UserInputService.TouchEnabled
+    local hasKeyboard = UserInputService.KeyboardEnabled
+    local hasMouse = UserInputService.MouseEnabled
+    
+    -- More accurate mobile detection
+    return isTouchDevice and not hasKeyboard and not hasMouse
 end
 
+-- ===== ENHANCED CONNECTION MANAGEMENT =====
 function tools.AddConnection(Signal, Function)
-	-- if not Library:IsRunning() then return end
 	local connection = Signal:Connect(Function)
 	table.insert(tools.Signals, connection)
-	return connection -- Return the connection so it can be disconnected later
+	return connection
 end
 
+-- Enhanced disconnect with error handling
 function tools.Disconnect()
 	for key = #tools.Signals, 1, -1 do
 		local Connection = table.remove(tools.Signals, key)
-		Connection:Disconnect()
+		if Connection and Connection.Connected then
+			pcall(function()
+				Connection:Disconnect()
+			end)
+		end
 	end
 end
 
+-- ===== ENHANCED CREATE FUNCTION =====
 function tools.Create(Name, Properties, Children)
 	local Object = Instance.new(Name)
 
+	-- Enhanced theme property handling
 	if Properties.ThemeProps then
 		for propName, themeKey in next, Properties.ThemeProps do
 			if currentTheme[themeKey] then
@@ -3238,15 +3312,24 @@ function tools.Create(Name, Properties, Children)
 		Properties.ThemeProps = nil
 	end
 
+	-- Apply properties with error handling
 	for i, v in next, Properties or {} do
-		Object[i] = v
+		pcall(function()
+			Object[i] = v
+		end)
 	end
+	
+	-- Apply children with error handling
 	for i, v in next, Children or {} do
-		v.Parent = Object
+		pcall(function()
+			v.Parent = Object
+		end)
 	end
+	
 	return Object
 end
 
+-- ===== ENHANCED SCROLL ANIMATION =====
 function tools.AddScrollAnim(scrollbar)
 	local visibleTween = TweenService:Create(scrollbar, TweenInfo.new(0.25), { ScrollBarImageTransparency = 0 })
 	local invisibleTween = TweenService:Create(scrollbar, TweenInfo.new(0.25), { ScrollBarImageTransparency = 1 })
@@ -3263,21 +3346,19 @@ function tools.AddScrollAnim(scrollbar)
 		end
 	end
 
+	-- Enhanced event handling
 	tools.AddConnection(scrollbar.MouseEnter, function()
 		lastInteraction = tick()
 		showScrollbar()
 	end)
 
 	tools.AddConnection(scrollbar.MouseLeave, function()
-		wait(delayTime)
+		task.wait(delayTime)
 		hideScrollbar()
 	end)
 
 	tools.AddConnection(scrollbar.InputChanged, function(input)
-		if
-			input.UserInputType == Enum.UserInputType.MouseMovement
-			or input.UserInputType == Enum.UserInputType.Touch
-		then
+		if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
 			lastInteraction = tick()
 			showScrollbar()
 		end
@@ -3295,17 +3376,68 @@ function tools.AddScrollAnim(scrollbar)
 		end
 	end)
 
-	tools.AddConnection(RunService.RenderStepped, function()
+	-- Use heartbeat for better performance
+	tools.AddConnection(RunService.Heartbeat, function()
 		if tick() - lastInteraction >= delayTime then
 			hideScrollbar()
 		end
 	end)
 end
 
+-- ===== UTILITY FUNCTIONS =====
+function tools.GetScreenSize()
+	local camera = workspace.CurrentCamera
+	return camera.ViewportSize
+end
+
+function tools.IsInViewport(object)
+	if not object or not object.Parent then return false end
+	
+	local camera = workspace.CurrentCamera
+	local viewportSize = camera.ViewportSize
+	local objectPosition = object.AbsolutePosition
+	local objectSize = object.AbsoluteSize
+	
+	return objectPosition.X >= 0 and objectPosition.Y >= 0 and
+		   objectPosition.X + objectSize.X <= viewportSize.X and
+		   objectPosition.Y + objectSize.Y <= viewportSize.Y
+end
+
+-- ===== PERFORMANCE MONITORING =====
+function tools.GetPerformanceStats()
+	local stats = game:GetService("Stats")
+	return {
+		FPS = math.floor(1 / stats.FrameTime * 10) / 10,
+		Ping = math.floor(stats.PerformanceStats.Ping:GetValue() * 100) / 100,
+		Memory = math.floor(stats:GetTotalMemoryUsageMb() * 100) / 100
+	}
+end
+
+-- ===== ENHANCED ERROR HANDLING =====
+function tools.SafeCall(func, ...)
+	local success, result = pcall(func, ...)
+	if not success then
+		warn("SafeCall error:", result)
+	end
+	return success, result
+end
+
+-- ===== CLEANUP FUNCTION =====
+function tools.Cleanup()
+	tools.Disconnect()
+	
+	-- Clear themed objects
+	for i = #themedObjects, 1, -1 do
+		themedObjects[i] = nil
+	end
+	
+	print("Tools cleanup completed")
+end
+
 return tools
 
 end)() end
-} -- [RefId] = Closure
+}
 
 -- Holds the actual DOM data
 local ObjectTree = {
