@@ -137,6 +137,27 @@ function FlagsManager:Load(name)
     return true
 end
 
+function FlagsManager:Delete(name)
+    if not name then
+        return false, "no config file is selected"
+    end
+
+    local file = FlagsManager.Folder .. "/settings/" .. name .. ".json"
+    if not isfile(file) then
+        return false, "config file does not exist"
+    end
+
+    local success = pcall(function()
+        delfile(file)
+    end)
+
+    if not success then
+        return false, "failed to delete config file"
+    end
+
+    return true
+end
+
 function FlagsManager:BuildFolderTree()
     local paths = {
         FlagsManager.Folder,
@@ -184,9 +205,29 @@ function FlagsManager:SetLibrary(library)
     FlagsManager.Flags = library.Flags
 end
 
+function FlagsManager:GetAutoLoadConfig()
+    local autoLoadFile = FlagsManager.Folder .. "/autoload.txt"
+    if isfile(autoLoadFile) then
+        return readfile(autoLoadFile)
+    end
+    return ""
+end
+
+function FlagsManager:SetAutoLoadConfig(configName)
+    local autoLoadFile = FlagsManager.Folder .. "/autoload.txt"
+    if configName and configName ~= "" then
+        writefile(autoLoadFile, configName)
+    else
+        if isfile(autoLoadFile) then
+            delfile(autoLoadFile)
+        end
+    end
+end
+
 function FlagsManager:InitSaveSystem(tab)
     -- assert(FlagsManager.Library, "Must set SaveManager.Library")
     local SaveManager_ConfigName = ""
+    local SaveManager_AutoLoadConfig = FlagsManager:GetAutoLoadConfig()
 
     local ConfigSection = tab:AddSection({
         Title = "Configurations",
@@ -263,6 +304,29 @@ function FlagsManager:InitSaveSystem(tab)
     })
 
     SaveManagerGroupButton:AddButton({
+        Title = "Delete a Configuration",
+        Variant = "Outline",
+        Callback = function()
+            local name = FlagsManager.Flags.SaveManager_ConfigurationList.Value
+
+            if name == "" then
+                return print("No config selected for deletion")
+            end
+
+            local success, err = FlagsManager:Delete(name)
+            if not success then
+                return print("Failed to delete config: " .. err)
+            end
+
+            print(string.format("Deleted config %q", name))
+
+            -- Refresh the list after deletion
+            FlagsManager.Flags.SaveManager_ConfigurationList:Refresh(FlagsManager:RefreshConfigList(), true)
+            FlagsManager.Flags.SaveManager_ConfigurationList:Set("")
+        end,
+    })
+
+    SaveManagerGroupButton:AddButton({
         Title = "Refresh Configuration List",
         Variant = "Outline",
         Callback = function()
@@ -270,6 +334,42 @@ function FlagsManager:InitSaveSystem(tab)
             FlagsManager.Flags.SaveManager_ConfigurationList:Set("")
         end,
     })
+
+    SaveManagerGroupButton:AddButton({
+        Title = "Auto Load Config",
+        Variant = "Outline",
+        Callback = function()
+            local name = FlagsManager.Flags.SaveManager_ConfigurationList.Value
+
+            if name == "" then
+                -- Clear auto load if no config selected
+                FlagsManager:SetAutoLoadConfig("")
+                print("Auto load config cleared")
+            else
+                FlagsManager:SetAutoLoadConfig(name)
+                print(string.format("Set auto load config to %q", name))
+            end
+        end,
+    })
+
+    -- Add Auto Load Config section
+    local AutoLoadSection = tab:AddSection({
+        Title = "Auto Load Config",
+        Description = "Current Auto Load Config: " .. (SaveManager_AutoLoadConfig ~= "" and SaveManager_AutoLoadConfig or "None"),
+    })
+
+    -- Auto load the config if one is set
+    if SaveManager_AutoLoadConfig ~= "" then
+        task.spawn(function()
+            wait(1) -- Wait a moment for everything to initialize
+            local success, err = FlagsManager:Load(SaveManager_AutoLoadConfig)
+            if success then
+                print(string.format("Auto loaded config %q", SaveManager_AutoLoadConfig))
+            else
+                print(string.format("Failed to auto load config %q: %s", SaveManager_AutoLoadConfig, err))
+            end
+        end)
+    end
 
     FlagsManager:BuildFolderTree()
 end
