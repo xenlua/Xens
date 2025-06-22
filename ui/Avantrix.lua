@@ -231,9 +231,17 @@ end)
 
 local Elements = {}
 Elements.__index = Elements
+
 Elements.__namecall = function(Table, Key, ...)
-    return Elements[Key](...)
+    local func = Elements[Key]
+    if type(func) == "function" then
+        return func(...)
+    else
+        error("Elements[" .. tostring(Key) .. "] is not a function or is nil", 2)
+    end
 end
+
+setmetatable(Elements, Elements) -- penting!
 
 -- Enhanced element loading with error handling
 for _, ElementComponent in ipairs(ElementsTable) do
