@@ -1150,6 +1150,7 @@ local TabModule = {
 	Containers = {},
 	SelectedTab = 0,
 	TabCount = 0,
+	SearchContainers = {}, -- Track search containers separately
 }
 
 function TabModule:Init(Window)
@@ -1205,6 +1206,48 @@ function TabModule:New(Title, Parent)
 			BorderSizePixel = 0,
 		}),
 	})
+
+	-- Create search container in the tab holder (sidebar)
+	Tab.SearchContainer = Create("Frame", {
+		Size = UDim2.new(1, 0, 0, 36),
+		BackgroundTransparency = 1,
+		Parent = Parent,
+		LayoutOrder = TabIndex + 100, -- Ensure it appears after the tab button
+		ThemeProps = {
+			BackgroundColor3 = "maincolor",
+		},
+		Visible = false, -- Initially hidden
+	})
+
+	local SearchBox = Create("TextBox", {
+		Size = UDim2.new(1, -8, 0, 32),
+		Position = UDim2.new(0, 4, 0, 2),
+		PlaceholderText = "Search elements...",
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Text = "",
+		Font = Enum.Font.Gotham,
+		TextSize = 14,
+		BackgroundTransparency = 1,
+		ThemeProps = {
+			TextColor3 = "titlecolor",
+			PlaceholderColor3 = "descriptioncolor",
+		},
+		Parent = Tab.SearchContainer,
+		ClearTextOnFocus = false,
+	}, {
+		Create("UIPadding", {
+			PaddingLeft = UDim.new(0, 8),
+			PaddingRight = UDim.new(0, 8),
+		}),
+		Create("UIStroke", {
+			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+			ThemeProps = {
+				Color = "bordercolor",
+			},
+			Thickness = 1,
+		}),
+	})
+
 	Tab.Container = Create("ScrollingFrame", {
 		CanvasSize = UDim2.new(0, 0, 0, 0),
 		ThemeProps = {
@@ -1230,48 +1273,6 @@ function TabModule:New(Title, Parent)
 	AddConnection(Tab.Container.UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"), function()
 		Tab.Container.CanvasSize = UDim2.new(0, 0, 0, Tab.Container.UIListLayout.AbsoluteContentSize.Y + 28)
 	end)
-
-	-- Add search container at the top of the tab container
-	Tab.SearchContainer = Create("Frame", {
-		Size = UDim2.new(1, 0, 0, 36),
-		BackgroundTransparency = 1,
-		Parent = Parent,
-		LayoutOrder = -1, -- Make sure it appears at the top
-		ThemeProps = {
-			BackgroundColor3 = "maincolor",
-		},
-	})
-
-	local SearchBox = Create("TextBox", {
-		Size = UDim2.new(1, 0, 0, 32),
-		Position = UDim2.new(0, 0, 0, 0),
-		PlaceholderText = "Search elements...",
-		TextXAlignment = Enum.TextXAlignment.Left,
-		Text = "",
-		Font = Enum.Font.Gotham,
-		TextSize = 14,
-		BackgroundTransparency = 1,
-		ThemeProps = {
-			-- BackgroundColor3 = "elementbackground",
-			TextColor3 = "titlecolor",
-			PlaceholderColor3 = "descriptioncolor",
-		},
-		Parent = Tab.SearchContainer,
-		ClearTextOnFocus = false,
-	}, {
-		Create("UIPadding", {
-			PaddingLeft = UDim.new(0, 8),
-			PaddingRight = UDim.new(0, 8),
-		}),
-
-		Create("UIStroke", {
-			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-			ThemeProps = {
-				Color = "bordercolor",
-			},
-			Thickness = 1,
-		}),
-	})
 
 	-- Function to filter elements based on search text
 	local function searchInElement(element, searchText)
@@ -1309,35 +1310,33 @@ function TabModule:New(Title, Parent)
 
 		-- Loop through all children in the container
 		for _, child in ipairs(Tab.Container:GetChildren()) do
-			if child ~= SearchContainer then
-				if child.Name == "Section" then
-					-- Handle section elements
-					local sectionContainer = child:FindFirstChild("SectionContainer")
-					if sectionContainer then
-						local visible = false
-						debugLog("Checking section:", child.Name)
+			if child.Name == "Section" then
+				-- Handle section elements
+				local sectionContainer = child:FindFirstChild("SectionContainer")
+				if sectionContainer then
+					local visible = false
+					debugLog("Checking section:", child.Name)
 
-						-- Search through elements in section
-						for _, element in ipairs(sectionContainer:GetChildren()) do
-							if element.Name == "Element" then
-								local elementVisible = searchInElement(element, searchText)
-								element.Visible = elementVisible or searchText == ""
-								if elementVisible then
-									visible = true
-								end
+					-- Search through elements in section
+					for _, element in ipairs(sectionContainer:GetChildren()) do
+						if element.Name == "Element" then
+							local elementVisible = searchInElement(element, searchText)
+							element.Visible = elementVisible or searchText == ""
+							if elementVisible then
+								visible = true
 							end
 						end
-
-						-- Show section if any elements match or search is empty
-						child.Visible = visible or searchText == ""
-						debugLog("Section visibility:", child.Visible)
 					end
-				elseif child.Name == "Element" then
-					-- Handle standalone elements
-					local elementVisible = searchInElement(child, searchText)
-					child.Visible = elementVisible or searchText == ""
-					debugLog("Standalone element visibility:", child.Visible)
+
+					-- Show section if any elements match or search is empty
+					child.Visible = visible or searchText == ""
+					debugLog("Section visibility:", child.Visible)
 				end
+			elseif child.Name == "Element" then
+				-- Handle standalone elements
+				local elementVisible = searchInElement(child, searchText)
+				child.Visible = elementVisible or searchText == ""
+				debugLog("Standalone element visibility:", child.Visible)
 			end
 		end
 	end
@@ -1359,6 +1358,7 @@ function TabModule:New(Title, Parent)
 
 	TabModule.Containers[TabIndex] = Tab.ContainerFrame
 	TabModule.Tabs[TabIndex] = Tab
+	TabModule.SearchContainers[TabIndex] = Tab.SearchContainer -- Store search container reference
 
 	function Tab:AddSection(cfgs)
 		cfgs = cfgs or {}
@@ -1407,7 +1407,7 @@ end
 function TabModule:SelectTab(Tab)
     TabModule.SelectedTab = Tab
 
-    for _, v in next, TabModule.Tabs do
+    for i, v in next, TabModule.Tabs do
         TweenService:Create(
             v.TabBtn.Title,
             TweenInfo.new(0.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
@@ -1421,8 +1421,8 @@ function TabModule:SelectTab(Tab)
         v.Selected = false
         
         -- Hide search container for non-selected tabs
-        if v.SearchContainer then
-            v.SearchContainer.Visible = false
+        if TabModule.SearchContainers[i] then
+            TabModule.SearchContainers[i].Visible = false
         end
     end
 
@@ -1443,9 +1443,9 @@ function TabModule:SelectTab(Tab)
             Container.Visible = false
         end
 
-        -- Show search container for selected tab
-        if selectedTab.SearchContainer then
-            selectedTab.SearchContainer.Visible = true
+        -- Show search container for selected tab only
+        if TabModule.SearchContainers[Tab] then
+            TabModule.SearchContainers[Tab].Visible = true
         end
 
         TabModule.Containers[Tab].Visible = true
