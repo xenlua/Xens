@@ -4987,11 +4987,13 @@ if ScriptClosures and Ref then
 end
 
 
-    local ClassName = Ref.ClassName
-    if ClassName == "LocalScript" or ClassName == "Script" then
-        table_insert(ScriptsToRun, Ref)
-    end
+if Ref and typeof(Ref) == "Instance" then
+	local ClassName = Ref.ClassName
+	if ClassName == "LocalScript" or ClassName == "Script" then
+		table.insert(ScriptsToRun, Ref)
+	end
 end
+
 
 local function LoadScript(scriptRef)
     local ScriptClassName = scriptRef.ClassName
