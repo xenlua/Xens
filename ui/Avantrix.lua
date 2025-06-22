@@ -73,8 +73,6 @@ local Library = {
 	ToggleBind = nil,
 }
 
-
-
 local GUI = Create("ScreenGui", {
 	Name = generateRandomString(16),
 	Parent = gethui(), --game.Players.LocalPlayer.PlayerGui,
@@ -281,10 +279,54 @@ function Library:Load(cfgs)
 		}),
 	})
 
+	-- Function to create gradient title
+	local function createGradientTitle(titleText, gameName)
+		-- Split the title to separate gameName and " | avantrix | discord.gg/cF8YeDPt2G"
+		local parts = {}
+		local avantrixPart = ""
+		local discordPart = ""
+		
+		-- Check if title contains the pattern
+		if string.find(titleText, " | avantrix") then
+			-- Extract parts
+			local beforeAvantrix = string.match(titleText, "(.+) | avantrix")
+			local afterAvantrix = string.match(titleText, "avantrix(.+)")
+			
+			if beforeAvantrix then
+				parts.gameName = beforeAvantrix
+			end
+			
+			avantrixPart = "avantrix"
+			
+			if afterAvantrix then
+				discordPart = afterAvantrix
+			end
+		else
+			parts.gameName = titleText
+		end
+		
+		-- Create the rich text with gradient for "avantrix"
+		local richText = ""
+		
+		if parts.gameName then
+			richText = richText .. parts.gameName
+		end
+		
+		if avantrixPart ~= "" then
+			richText = richText .. " | <font color=\"rgb(147, 51, 234)\">avantrix</font>"
+		end
+		
+		if discordPart ~= "" then
+			richText = richText .. discordPart
+		end
+		
+		return richText
+	end
+
 	local title = Create("TextLabel", {
 		Font = Enum.Font.GothamMedium,
 		RichText = true,
-		Text = cfgs.Title,
+		Text = createGradientTitle(cfgs.Title, cfgs.Title),
 		ThemeProps = {
 			TextColor3 = "titlecolor",
 			BackgroundColor3 = "maincolor",
@@ -526,9 +568,16 @@ function DialogModule:Create(config, parent)
         }),
     })
 
+    -- Function to create gradient text for paragraphs
+    local function createGradientParagraph(text)
+        -- Simple gradient effect using rich text
+        -- You can customize this function to create more complex gradients
+        return "<font color=\"rgb(147, 51, 234)\">" .. text .. "</font>"
+    end
+
     -- Create content container
     local content = Create("TextLabel", {
-        Text = config.Content,
+        Text = createGradientParagraph(config.Content),
         TextSize = 14,
         Font = Enum.Font.Gotham,
         TextWrapped = true,
@@ -645,11 +694,21 @@ return function(title, desc, parent)
 		Parent = Element.Frame,
 	})
 
+	-- Function to create gradient text
+	local function createGradientText(text)
+		-- Check if text contains "avantrix" and apply purple gradient
+		if string.find(string.lower(text), "avantrix") then
+			local gradientText = string.gsub(text, "[Aa][Vv][Aa][Nn][Tt][Rr][Ii][Xx]", "<font color=\"rgb(147, 51, 234)\">%0</font>")
+			return gradientText
+		end
+		return text
+	end
+
 	local name = Create("TextLabel", {
 		Font = Enum.Font.Gotham,
 		LineHeight = 1.2,
 		RichText = true,
-		Text = title,
+		Text = createGradientText(title),
 		ThemeProps = {
 			TextColor3 = "titlecolor",
 			BackgroundColor3 = "maincolor",
@@ -677,6 +736,12 @@ return function(title, desc, parent)
 		}),
 	})
 
+	-- Function to create gradient paragraph text
+	local function createGradientParagraph(text)
+		-- Apply gradient effect to paragraph text
+		return "<font color=\"rgb(147, 51, 234)\">" .. text .. "</font>"
+	end
+
 	local description = Create("TextLabel", {
 		Font = Enum.Font.Gotham,
 		RichText = true,
@@ -690,7 +755,7 @@ return function(title, desc, parent)
 		TextWrapped = true,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		AutomaticSize = Enum.AutomaticSize.Y,
-		Text = desc,
+		Text = desc and createGradientParagraph(desc) or "",
 		BackgroundTransparency = 1,
 		BorderColor3 = Color3.fromRGB(0, 0, 0),
 		BorderSizePixel = 0,
@@ -701,7 +766,7 @@ return function(title, desc, parent)
 	}, {})
 
 	function Element:SetTitle(Set)
-		name.Text = Set
+		name.Text = createGradientText(Set)
 	end
 
 	function Element:SetDesc(Set)
@@ -713,7 +778,7 @@ return function(title, desc, parent)
 		else
 			description.Visible = true
 		end
-		description.Text = Set
+		description.Text = createGradientParagraph(Set)
 	end
 
 	Element:SetDesc(desc)
@@ -821,6 +886,16 @@ function Notif:ShowNotification(titleText, descriptionText, duration)
         Parent = topframe,
     })
 
+    -- Function to create gradient title for notifications
+    local function createGradientTitle(text)
+        -- Apply gradient to "avantrix" in notification titles
+        if string.find(string.lower(text), "avantrix") then
+            local gradientText = string.gsub(text, "[Aa][Vv][Aa][Nn][Tt][Rr][Ii][Xx]", "<font color=\"rgb(147, 51, 234)\">%0</font>")
+            return gradientText
+        end
+        return text
+    end
+
     local title = Create("TextLabel", {
         Font = Enum.Font.GothamMedium,
         LineHeight = 1.2,
@@ -832,7 +907,7 @@ function Notif:ShowNotification(titleText, descriptionText, duration)
         TextYAlignment = Enum.TextYAlignment.Top,
         AutomaticSize = Enum.AutomaticSize.XY,
         BackgroundTransparency = 1,
-        Text = titleText,
+        Text = createGradientTitle(titleText),
         Visible = true,
         Parent = topframe,
     }, {
@@ -840,6 +915,12 @@ function Notif:ShowNotification(titleText, descriptionText, duration)
             PaddingLeft = UDim.new(0, 24),
         }),
     })
+
+    -- Function to create gradient description for notifications
+    local function createGradientDescription(text)
+        -- Apply gradient effect to description text
+        return "<font color=\"rgb(147, 51, 234)\">" .. text .. "</font>"
+    end
 
     local description = Create("TextLabel", {
         Font = Enum.Font.Gotham,
@@ -852,7 +933,7 @@ function Notif:ShowNotification(titleText, descriptionText, duration)
         AutomaticSize = Enum.AutomaticSize.XY,
         LayoutOrder = 1,
         BackgroundTransparency = 1,
-        Text = descriptionText,
+        Text = createGradientDescription(descriptionText),
         Visible = true,
         Parent = holderin,
     })
@@ -1001,6 +1082,16 @@ return function(cfgs, Parent)
 		-- Parent = topbox,
 	})
 	
+	-- Function to create gradient section title
+	local function createGradientSectionTitle(text)
+		-- Apply gradient to "avantrix" in section titles
+		if string.find(string.lower(text), "avantrix") then
+			local gradientText = string.gsub(text, "[Aa][Vv][Aa][Nn][Tt][Rr][Ii][Xx]", "<font color=\"rgb(147, 51, 234)\">%0</font>")
+			return gradientText
+		end
+		return text
+	end
+	
 	local name = Create("TextLabel", {
 		Font = Enum.Font.Gotham,
 		LineHeight = 1.2000000476837158,
@@ -1025,30 +1116,37 @@ return function(cfgs, Parent)
 	}, {
 		chevronIcon
 	})
+	
 	if cfgs.description ~= nil and cfgs.description ~= "" then
-	local description = Create("TextLabel", {
-		Font = Enum.Font.Gotham,
-		RichText = true,
-		-- TextColor3 = Color3.fromRGB(168, 168, 168),
-		ThemeProps = {
-			TextColor3 = "descriptioncolor",
-			BackgroundColor3 = "maincolor",
-		},
-		TextSize = 14,
-		TextWrapped = true,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		AutomaticSize = Enum.AutomaticSize.Y,
-		Text = "",
-		BackgroundTransparency = 1,
-		BorderColor3 = Color3.fromRGB(0, 0, 0),
-		BorderSizePixel = 0,
-		Position = UDim2.new(0, 0, 0, 23),
-		Size = UDim2.new(1, 0, 0, 16),
-		Visible = true,
-		Parent = topbox,
-	}, {})
-	description.Text = cfgs.Description or ""
-	description.Visible = cfgs.Description ~= nil
+		-- Function to create gradient section description
+		local function createGradientSectionDescription(text)
+			-- Apply gradient effect to section description text
+			return "<font color=\"rgb(147, 51, 234)\">" .. text .. "</font>"
+		end
+		
+		local description = Create("TextLabel", {
+			Font = Enum.Font.Gotham,
+			RichText = true,
+			-- TextColor3 = Color3.fromRGB(168, 168, 168),
+			ThemeProps = {
+				TextColor3 = "descriptioncolor",
+				BackgroundColor3 = "maincolor",
+			},
+			TextSize = 14,
+			TextWrapped = true,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			AutomaticSize = Enum.AutomaticSize.Y,
+			Text = "",
+			BackgroundTransparency = 1,
+			BorderColor3 = Color3.fromRGB(0, 0, 0),
+			BorderSizePixel = 0,
+			Position = UDim2.new(0, 0, 0, 23),
+			Size = UDim2.new(1, 0, 0, 16),
+			Visible = true,
+			Parent = topbox,
+		}, {})
+		description.Text = createGradientSectionDescription(cfgs.Description or "")
+		description.Visible = cfgs.Description ~= nil
 	end
 
 	if cfgs.Title ~= nil and cfgs.Title ~= "" then
@@ -1057,7 +1155,7 @@ return function(cfgs, Parent)
 		-- name.AutomaticSize = Enum.AutomaticSize.Y
 		-- name.TextWrapped = true
 		name.Size = UDim2.new(1, 0, 0, 16)
-		name.Text = cfgs.Title
+		name.Text = createGradientSectionTitle(cfgs.Title)
 		name.TextSize = cfgs.TitleTextSize
 		name.Visible = true
 	end
