@@ -2,11 +2,10 @@ local httpService = game:GetService("HttpService")
 
 local FlagsManager = {}
 
-FlagsManager.Folder = "Avantrix"
+FlagsManager.Folder = "3itx"
 FlagsManager.Ignore = {}
 FlagsManager.Flags = {}
 FlagsManager.Library = nil
-FlagsManager.AutoLoadConfig = ""
 FlagsManager.Parser = {
     Toggle = {
         Save = function(idx, object)
@@ -24,7 +23,7 @@ FlagsManager.Parser = {
         end,
         Load = function(idx, data)
             if FlagsManager.Flags[idx] then
-                FlagsManager.Flags[idx]:Set(tonumber(data.value))
+                FlagsManager.Flags[idx]:Set(data.value)
             end
         end,
     },
@@ -58,16 +57,16 @@ FlagsManager.Parser = {
             end
         end,
     },
-    Input = {
-        Save = function(idx, object)
-            return { type = "Input", idx = idx, value = object.Value }
-        end,
-        Load = function(idx, data)
-            if FlagsManager.Flags[idx] then
-                FlagsManager.Flags[idx]:Set(data.value)
-            end
-        end,
-    }
+    -- Input = {
+    --     Save = function(idx, object)
+    --         return { type = "Input", idx = idx, value = object.Value }
+    --     end,
+    --     Load = function(idx, data)
+    --         if FlagsManager.Flags[idx] then
+    --             FlagsManager.Flags[idx]:Set(data.value)
+    --         end
+    --     end,
+    -- }
 }
 
 function FlagsManager:SetIgnoreIndexes(list)
@@ -81,29 +80,6 @@ function FlagsManager:SetFolder(folder)
     FlagsManager:BuildFolderTree()
 end
 
-function FlagsManager:SetAutoLoadConfig(configName)
-    FlagsManager.AutoLoadConfig = configName
-    FlagsManager:SaveAutoLoadConfig()
-end
-
-function FlagsManager:SaveAutoLoadConfig()
-    if not FlagsManager.AutoLoadConfig or FlagsManager.AutoLoadConfig == "" then
-        return
-    end
-    
-    local autoLoadPath = FlagsManager.Folder .. "/autoload.txt"
-    writefile(autoLoadPath, FlagsManager.AutoLoadConfig)
-end
-
-function FlagsManager:LoadAutoLoadConfig()
-    local autoLoadPath = FlagsManager.Folder .. "/autoload.txt"
-    if isfile(autoLoadPath) then
-        FlagsManager.AutoLoadConfig = readfile(autoLoadPath)
-        return FlagsManager.AutoLoadConfig
-    end
-    return ""
-end
-
 function FlagsManager:Save(name)
     if not name then
         return false, "no config file is selected"
@@ -113,11 +89,6 @@ function FlagsManager:Save(name)
 
     local data = {
         objects = {},
-        metadata = {
-            created = os.time(),
-            version = "1.0",
-            game = game.PlaceId
-        }
     }
 
     for idx, option in next, FlagsManager.Flags do
@@ -163,20 +134,6 @@ function FlagsManager:Load(name)
         end
     end
 
-    return true
-end
-
-function FlagsManager:Delete(name)
-    if not name then
-        return false, "no config file is selected"
-    end
-
-    local file = FlagsManager.Folder .. "/settings/" .. name .. ".json"
-    if not isfile(file) then
-        return false, "config file does not exist"
-    end
-
-    delfile(file)
     return true
 end
 
@@ -228,7 +185,7 @@ function FlagsManager:SetLibrary(library)
 end
 
 function FlagsManager:InitSaveSystem(tab)
-    assert(FlagsManager.Library, "Must set FlagsManager.Library")
+    -- assert(FlagsManager.Library, "Must set SaveManager.Library")
     local SaveManager_ConfigName = ""
 
     local ConfigSection = tab:AddSection({
@@ -236,221 +193,85 @@ function FlagsManager:InitSaveSystem(tab)
         Description = "Section for using your saved configs, or those you copied and added to the sections folder.",
     })
 
-    -- Config Name Input
     ConfigSection:AddTextbox({
         Title = "Config Name",
         Description = "Before you click on the create config button, enter a name!",
-        Placeholder = "Enter configuration name...",
         Callback = function(val)
             SaveManager_ConfigName = val
         end
     })
 
-    -- Configuration List Dropdown
     ConfigSection:AddDropdown("SaveManager_ConfigurationList", {
         Title = "Configuration List",
         Description = "List with all configurations from the folder.",
         Options = FlagsManager:RefreshConfigList(),
         Default = "",
-        Callback = function(val)
-            -- Auto-update when selection changes
-        end
     })
 
-    -- Auto Load Config Dropdown
-    ConfigSection:AddDropdown("SaveManager_AutoLoadConfig", {
-        Title = "Auto Load Config",
-        Description = "Select a configuration to automatically load on startup.",
-        Options = FlagsManager:RefreshConfigList(),
-        Default = FlagsManager:LoadAutoLoadConfig(),
-        Callback = function(val)
-            FlagsManager:SetAutoLoadConfig(val)
-        end
-    })
+    local SaveManagerGroupButton = ConfigSection:AddGroupButton()
 
-    -- Create Configuration Button (Primary)
-    ConfigSection:AddButton({
+    SaveManagerGroupButton:AddButton({
         Title = "Create a Configuration",
         Variant = "Primary",
         Callback = function()
             local name = SaveManager_ConfigName
 
             if name:gsub(" ", "") == "" then
-                if FlagsManager.Library and FlagsManager.Library.Notify then
-                    FlagsManager.Library:Notify("Invalid config name (empty)", "error")
-                else
-                    print("Invalid config name (empty)")
-                end
-                return
+                return print("Invalid config name (empty)")
             end
 
             local success, err = FlagsManager:Save(name)
             if not success then
-                if FlagsManager.Library and FlagsManager.Library.Notify then
-                    FlagsManager.Library:Notify("Failed to create config: " .. err, "error")
-                else
-                    print("Failed to create config: " .. err)
-                end
-                return
+                return print("Failed to create config: " .. err)
             end
 
-            if FlagsManager.Library and FlagsManager.Library.Notify then
-                FlagsManager.Library:Notify(string.format("Created config '%s'", name), "success")
-            else
-                print(string.format("Created config '%s'", name))
-            end
+            print(string.format("Create config %q", name))
 
-            -- Refresh dropdowns
-            local newConfigs = FlagsManager:RefreshConfigList()
-            FlagsManager.Flags.SaveManager_ConfigurationList:Refresh(newConfigs, true)
-            FlagsManager.Flags.SaveManager_AutoLoadConfig:Refresh(newConfigs, true)
+            FlagsManager.Flags.SaveManager_ConfigurationList:Refresh(FlagsManager:RefreshConfigList(), true)
             FlagsManager.Flags.SaveManager_ConfigurationList:Set("")
         end,
     })
 
-    -- Load Configuration Button
-    ConfigSection:AddButton({
+    SaveManagerGroupButton:AddButton({
         Title = "Load a Configuration",
-        Variant = "Secondary",
+        Variant = "Outline",
         Callback = function()
             local name = FlagsManager.Flags.SaveManager_ConfigurationList.Value
-
-            if name == "" then
-                if FlagsManager.Library and FlagsManager.Library.Notify then
-                    FlagsManager.Library:Notify("No configuration selected", "warning")
-                else
-                    print("No configuration selected")
-                end
-                return
-            end
 
             local success, err = FlagsManager:Load(name)
             if not success then
-                if FlagsManager.Library and FlagsManager.Library.Notify then
-                    FlagsManager.Library:Notify("Failed to load config: " .. err, "error")
-                else
-                    print("Failed to load config: " .. err)
-                end
-                return
+                return print("Failed to load config: " .. err)
             end
 
-            if FlagsManager.Library and FlagsManager.Library.Notify then
-                FlagsManager.Library:Notify(string.format("Loaded config '%s'", name), "success")
-            else
-                print(string.format("Loaded config '%s'", name))
-            end
+            print(string.format("Loaded config %q", name))
         end,
     })
 
-    -- Save Configuration Button
-    ConfigSection:AddButton({
-        Title = "Save a Configuration",
+    SaveManagerGroupButton:AddButton({
+        Title = "Save a New Configuration",
         Variant = "Outline",
         Callback = function()
             local name = FlagsManager.Flags.SaveManager_ConfigurationList.Value
-
-            if name == "" then
-                if FlagsManager.Library and FlagsManager.Library.Notify then
-                    FlagsManager.Library:Notify("No configuration selected", "warning")
-                else
-                    print("No configuration selected")
-                end
-                return
-            end
 
             local success, err = FlagsManager:Save(name)
             if not success then
-                if FlagsManager.Library and FlagsManager.Library.Notify then
-                    FlagsManager.Library:Notify("Failed to save config: " .. err, "error")
-                else
-                    print("Failed to save config: " .. err)
-                end
-                return
+                return print("Failed to save config: " .. err)
             end
 
-            if FlagsManager.Library and FlagsManager.Library.Notify then
-                FlagsManager.Library:Notify(string.format("Saved config '%s'", name), "success")
-            else
-                print(string.format("Saved config '%s'", name))
-            end
+            print(string.format("Saved config %q", name))
         end,
     })
 
-    -- Delete Configuration Button
-    ConfigSection:AddButton({
-        Title = "Delete a Configuration",
-        Variant = "Destructive",
-        Callback = function()
-            local name = FlagsManager.Flags.SaveManager_ConfigurationList.Value
-
-            if name == "" then
-                if FlagsManager.Library and FlagsManager.Library.Notify then
-                    FlagsManager.Library:Notify("No configuration selected", "warning")
-                else
-                    print("No configuration selected")
-                end
-                return
-            end
-
-            local success, err = FlagsManager:Delete(name)
-            if not success then
-                if FlagsManager.Library and FlagsManager.Library.Notify then
-                    FlagsManager.Library:Notify("Failed to delete config: " .. err, "error")
-                else
-                    print("Failed to delete config: " .. err)
-                end
-                return
-            end
-
-            if FlagsManager.Library and FlagsManager.Library.Notify then
-                FlagsManager.Library:Notify(string.format("Deleted config '%s'", name), "success")
-            else
-                print(string.format("Deleted config '%s'", name))
-            end
-
-            -- Refresh dropdowns and clear selection
-            local newConfigs = FlagsManager:RefreshConfigList()
-            FlagsManager.Flags.SaveManager_ConfigurationList:Refresh(newConfigs, true)
-            FlagsManager.Flags.SaveManager_AutoLoadConfig:Refresh(newConfigs, true)
-            FlagsManager.Flags.SaveManager_ConfigurationList:Set("")
-        end,
-    })
-
-    -- Refresh Configuration List Button
-    ConfigSection:AddButton({
+    SaveManagerGroupButton:AddButton({
         Title = "Refresh Configuration List",
         Variant = "Outline",
         Callback = function()
-            local newConfigs = FlagsManager:RefreshConfigList()
-            FlagsManager.Flags.SaveManager_ConfigurationList:Refresh(newConfigs, true)
-            FlagsManager.Flags.SaveManager_AutoLoadConfig:Refresh(newConfigs, true)
+            FlagsManager.Flags.SaveManager_ConfigurationList:Refresh(FlagsManager:RefreshConfigList(), true)
             FlagsManager.Flags.SaveManager_ConfigurationList:Set("")
-
-            if FlagsManager.Library and FlagsManager.Library.Notify then
-                FlagsManager.Library:Notify("Configuration list refreshed", "info")
-            else
-                print("Configuration list refreshed")
-            end
         end,
     })
 
     FlagsManager:BuildFolderTree()
-
-    -- Auto-load configuration on startup if set
-    task.spawn(function()
-        wait(1) -- Wait for UI to fully load
-        local autoLoadConfig = FlagsManager:LoadAutoLoadConfig()
-        if autoLoadConfig ~= "" then
-            local success, err = FlagsManager:Load(autoLoadConfig)
-            if success then
-                if FlagsManager.Library and FlagsManager.Library.Notify then
-                    FlagsManager.Library:Notify(string.format("Auto-loaded config '%s'", autoLoadConfig), "info")
-                else
-                    print(string.format("Auto-loaded config '%s'", autoLoadConfig))
-                end
-            end
-        end
-    end)
 end
 
 return FlagsManager
