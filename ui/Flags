@@ -268,10 +268,8 @@ function FlagsManager:InitSaveSystem(tab)
         end
     })
 
-    -- Primary Action Buttons
-    local PrimaryButtonGroup = ConfigSection:AddGroupButton()
-
-    PrimaryButtonGroup:AddButton({
+    -- Create Configuration Button (Primary)
+    ConfigSection:AddButton({
         Title = "Create a Configuration",
         Variant = "Primary",
         Callback = function()
@@ -310,7 +308,8 @@ function FlagsManager:InitSaveSystem(tab)
         end,
     })
 
-    PrimaryButtonGroup:AddButton({
+    -- Load Configuration Button
+    ConfigSection:AddButton({
         Title = "Load a Configuration",
         Variant = "Secondary",
         Callback = function()
@@ -343,11 +342,9 @@ function FlagsManager:InitSaveSystem(tab)
         end,
     })
 
-    -- Secondary Action Buttons
-    local SecondaryButtonGroup = ConfigSection:AddGroupButton()
-
-    SecondaryButtonGroup:AddButton({
-        Title = "Save a New Configuration",
+    -- Save Configuration Button
+    ConfigSection:AddButton({
+        Title = "Save a Configuration",
         Variant = "Outline",
         Callback = function()
             local name = FlagsManager.Flags.SaveManager_ConfigurationList.Value
@@ -379,7 +376,8 @@ function FlagsManager:InitSaveSystem(tab)
         end,
     })
 
-    SecondaryButtonGroup:AddButton({
+    -- Delete Configuration Button
+    ConfigSection:AddButton({
         Title = "Delete a Configuration",
         Variant = "Destructive",
         Callback = function()
@@ -418,10 +416,8 @@ function FlagsManager:InitSaveSystem(tab)
         end,
     })
 
-    -- Utility Buttons
-    local UtilityButtonGroup = ConfigSection:AddGroupButton()
-
-    UtilityButtonGroup:AddButton({
+    -- Refresh Configuration List Button
+    ConfigSection:AddButton({
         Title = "Refresh Configuration List",
         Variant = "Outline",
         Callback = function()
@@ -434,39 +430,6 @@ function FlagsManager:InitSaveSystem(tab)
                 FlagsManager.Library:Notify("Configuration list refreshed", "info")
             else
                 print("Configuration list refreshed")
-            end
-        end,
-    })
-
-    UtilityButtonGroup:AddButton({
-        Title = "Auto Load Config",
-        Variant = "Secondary",
-        Callback = function()
-            local autoLoadConfig = FlagsManager:LoadAutoLoadConfig()
-            
-            if autoLoadConfig == "" then
-                if FlagsManager.Library and FlagsManager.Library.Notify then
-                    FlagsManager.Library:Notify("No auto-load configuration set", "info")
-                else
-                    print("No auto-load configuration set")
-                end
-                return
-            end
-
-            local success, err = FlagsManager:Load(autoLoadConfig)
-            if not success then
-                if FlagsManager.Library and FlagsManager.Library.Notify then
-                    FlagsManager.Library:Notify("Failed to auto-load config: " .. err, "error")
-                else
-                    print("Failed to auto-load config: " .. err)
-                end
-                return
-            end
-
-            if FlagsManager.Library and FlagsManager.Library.Notify then
-                FlagsManager.Library:Notify(string.format("Auto-loaded config '%s'", autoLoadConfig), "success")
-            else
-                print(string.format("Auto-loaded config '%s'", autoLoadConfig))
             end
         end,
     })
