@@ -1,3 +1,9 @@
+-- Cleanup existing instances
+if (game:GetService("CoreGui")):FindFirstChild("Avantrix") and (game:GetService("CoreGui")):FindFirstChild("ScreenGui") then
+	(game:GetService("CoreGui")).Avantrix:Destroy();
+	(game:GetService("CoreGui")).ScreenGui:Destroy();
+end;
+
 -- Will be used later for getting flattened globals
 local ImportGlobals
 
@@ -30,10 +36,55 @@ local AddScrollAnim = Tools.AddScrollAnim
 local isMobile = Tools.isMobile()
 local CurrentThemeProps = Tools.GetPropsCurrentTheme()
 
+-- Global cleanup system
+local GlobalConnections = {}
+local GlobalTweens = {}
+local IsLibraryRunning = true
+
+local function AddGlobalConnection(connection)
+	table.insert(GlobalConnections, connection)
+	return connection
+end
+
+local function AddGlobalTween(tween)
+	table.insert(GlobalTweens, tween)
+	return tween
+end
+
+local function CleanupAll()
+	IsLibraryRunning = false
+	
+	-- Disconnect all connections
+	for _, connection in pairs(GlobalConnections) do
+		if connection and connection.Disconnect then
+			connection:Disconnect()
+		end
+	end
+	
+	-- Stop all tweens
+	for _, tween in pairs(GlobalTweens) do
+		if tween and tween.Cancel then
+			tween:Cancel()
+		end
+	end
+	
+	-- Clear arrays
+	GlobalConnections = {}
+	GlobalTweens = {}
+	
+	-- Cleanup Tools signals
+	for i, Connection in pairs(Tools.Signals) do
+		if Connection and Connection.Disconnect then
+			Connection:Disconnect()
+		end
+	end
+	Tools.Signals = {}
+end
+
 local function MakeDraggable(DragPoint, Main)
 	-- if isMobile then return end
 	local Dragging, DragInput, MousePos, FramePos = false
-	AddConnection(DragPoint.InputBegan, function(Input)
+	AddGlobalConnection(DragPoint.InputBegan:Connect(function(Input)
 		if
 			Input.UserInputType == Enum.UserInputType.MouseButton1
 			or Input.UserInputType == Enum.UserInputType.Touch
@@ -42,19 +93,19 @@ local function MakeDraggable(DragPoint, Main)
 			MousePos = Input.Position
 			FramePos = Main.Position
 
-			AddConnection(Input.Changed, function()
+			AddGlobalConnection(Input.Changed:Connect(function()
 				if Input.UserInputState == Enum.UserInputState.End then
 					Dragging = false
 				end
-			end)
+			end))
 		end
-	end)
-	AddConnection(DragPoint.InputChanged, function(Input)
+	end))
+	AddGlobalConnection(DragPoint.InputChanged:Connect(function(Input)
 		if Input.UserInputType == Enum.UserInputType.MouseMovement then
 			DragInput = Input
 		end
-	end)
-	AddConnection(UserInputService.InputChanged, function(Input)
+	end))
+	AddGlobalConnection(UserInputService.InputChanged:Connect(function(Input)
 		if
 			(Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch)
 			and Dragging
@@ -63,7 +114,7 @@ local function MakeDraggable(DragPoint, Main)
 			Main.Position =
 				UDim2.new(FramePos.X.Scale, FramePos.X.Offset + Delta.X, FramePos.Y.Scale, FramePos.Y.Offset + Delta.Y)
 		end
-	end)
+	end))
 end
 
 local Library = {
@@ -73,10 +124,8 @@ local Library = {
 	ToggleBind = nil,
 }
 
-
-
 local GUI = Create("ScreenGui", {
-	Name = generateRandomString(16),
+	Name = "Avantrix",
 	Parent = gethui(), --game.Players.LocalPlayer.PlayerGui,
 	ResetOnSpawn = false,
 	ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
@@ -97,16 +146,14 @@ function Library:AddTheme(themeName, themeProps)
 end
 
 function Library:IsRunning()
-	return GUI.Parent == gethui() -- game.Players.LocalPlayer.PlayerGui -- testing ver with playergui
+	return GUI.Parent == gethui() and IsLibraryRunning
 end
 
 task.spawn(function()
 	while Library:IsRunning() do
 		task.wait()
 	end
-	for i, Connection in pairs(Tools.Signals) do
-		Connection:Disconnect()
-	end
+	CleanupAll()
 end)
 
 local Elements = {}
@@ -238,30 +285,31 @@ function Library:Load(cfgs)
 		canvas_group.Visible = true
 		togglebtn.Visible = false
 	
+		AddGlobalTween(positionTween)
 		positionTween:Play()
 		-- fadeTween:Play()
 		-- toggleFadeTween:Play()
 		-- toggleFadeSTween:Play()
 		
 	
-		positionTween.Completed:Connect(function()
+		AddGlobalConnection(positionTween.Completed:Connect(function()
 			if isVisible then
 				canvas_group.Visible = false
 				togglebtn.Visible = true
 			end
-		end)
+		end))
 	end
 
 	ToggleVisibility()
 	-- ToggleVisibility()
 
 	MakeDraggable(togglebtn, togglebtn)
-	AddConnection(togglebtn.MouseButton1Click, ToggleVisibility)
-	AddConnection(UserInputService.InputBegan, function(value)
+	AddGlobalConnection(togglebtn.MouseButton1Click:Connect(ToggleVisibility))
+	AddGlobalConnection(UserInputService.InputBegan:Connect(function(value)
 		if value.KeyCode == cfgs.BindGui then
 			ToggleVisibility()
 		end
-	end)
+	end))
 
 	local top_frame = Create("Frame", {
 		ThemeProps = {
@@ -357,11 +405,13 @@ function Library:Load(cfgs)
 		}),
 	})
 
-	AddConnection(minimizebtn.MouseButton1Click, ToggleVisibility)
-	AddConnection(closebtn.MouseButton1Click, function()
+	AddGlobalConnection(minimizebtn.MouseButton1Click:Connect(ToggleVisibility))
+	AddGlobalConnection(closebtn.MouseButton1Click:Connect(function()
+		CleanupAll()
 		canvas_group:Destroy()
 		togglebtn:Destroy()
-	end)
+		GUI:Destroy()
+	end))
 
 	local tab_frame = Create("Frame", {
 		BackgroundTransparency = 1,
@@ -406,9 +456,9 @@ function Library:Load(cfgs)
 		}),
 	})
 
-	AddConnection(TabHolder.UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"), function()
+	AddGlobalConnection(TabHolder.UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 		TabHolder.CanvasSize = UDim2.new(0, 0, 0, TabHolder.UIListLayout.AbsoluteContentSize.Y + 28)
-	end)
+	end))
 
 	AddScrollAnim(TabHolder)
 
@@ -1168,6 +1218,7 @@ function TabModule:New(Title, Parent)
 		Selected = false,
 		Name = Title,
 		Type = "Tab",
+		SearchInitialized = false, -- Add flag to prevent duplicate search setup
 	}
 
 	Tab.TabBtn = Create("TextButton", {
@@ -1230,125 +1281,131 @@ function TabModule:New(Title, Parent)
 		Tab.Container.CanvasSize = UDim2.new(0, 0, 0, Tab.Container.UIListLayout.AbsoluteContentSize.Y + 28)
 	end)
 
-	-- Add search container at the top of the tab container
-	Tab.SearchContainer = Create("Frame", {
-		Size = UDim2.new(1, 0, 0, 36),
-		BackgroundTransparency = 1,
-		Parent = Parent,
-		LayoutOrder = -1, -- Make sure it appears at the top
-		ThemeProps = {
-			BackgroundColor3 = "maincolor",
-		},
-	})
-
-	local SearchBox = Create("TextBox", {
-		Size = UDim2.new(1, 0, 0, 32),
-		Position = UDim2.new(0, 0, 0, 0),
-		PlaceholderText = "Search elements...",
-		TextXAlignment = Enum.TextXAlignment.Left,
-		Text = "",
-		Font = Enum.Font.Gotham,
-		TextSize = 14,
-		BackgroundTransparency = 1,
-		ThemeProps = {
-			-- BackgroundColor3 = "elementbackground",
-			TextColor3 = "titlecolor",
-			PlaceholderColor3 = "descriptioncolor",
-		},
-		Parent = Tab.SearchContainer,
-		ClearTextOnFocus = false,
-	}, {
-		Create("UIPadding", {
-			PaddingLeft = UDim.new(0, 8),
-			PaddingRight = UDim.new(0, 8),
-		}),
-
-		Create("UIStroke", {
-			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+	-- Add search container at the top of the tab container - only once
+	if not Tab.SearchInitialized then
+		Tab.SearchContainer = Create("Frame", {
+			Size = UDim2.new(1, 0, 0, 36),
+			BackgroundTransparency = 1,
+			Parent = Parent,
+			LayoutOrder = -1, -- Make sure it appears at the top
 			ThemeProps = {
-				Color = "bordercolor",
+				BackgroundColor3 = "maincolor",
 			},
-			Thickness = 1,
-		}),
-	})
+			Name = "SearchContainer_" .. TabIndex, -- Unique name to prevent conflicts
+		})
 
-	-- Function to filter elements based on search text
-	local function searchInElement(element, searchText)
-		local title = element:FindFirstChild("Title", true)
-		local desc = element:FindFirstChild("Description", true)
+		local SearchBox = Create("TextBox", {
+			Size = UDim2.new(1, 0, 0, 32),
+			Position = UDim2.new(0, 0, 0, 0),
+			PlaceholderText = "Search elements...",
+			TextXAlignment = Enum.TextXAlignment.Left,
+			Text = "",
+			Font = Enum.Font.Gotham,
+			TextSize = 14,
+			BackgroundTransparency = 1,
+			ThemeProps = {
+				-- BackgroundColor3 = "elementbackground",
+				TextColor3 = "titlecolor",
+				PlaceholderColor3 = "descriptioncolor",
+			},
+			Parent = Tab.SearchContainer,
+			ClearTextOnFocus = false,
+			Name = "SearchBox_" .. TabIndex, -- Unique name
+		}, {
+			Create("UIPadding", {
+				PaddingLeft = UDim.new(0, 8),
+				PaddingRight = UDim.new(0, 8),
+			}),
 
-		if title then
-			debugLog("Checking title:", title.Text)
-			local cleanTitle = title.Text:gsub("^%s+", "")
-			if string.find(string.lower(cleanTitle), searchText) then
-				debugLog("Found match in title")
-				return true
+			Create("UIStroke", {
+				ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+				ThemeProps = {
+					Color = "bordercolor",
+				},
+				Thickness = 1,
+			}),
+		})
+
+		-- Function to filter elements based on search text
+		local function searchInElement(element, searchText)
+			local title = element:FindFirstChild("Title", true)
+			local desc = element:FindFirstChild("Description", true)
+
+			if title then
+				debugLog("Checking title:", title.Text)
+				local cleanTitle = title.Text:gsub("^%s+", "")
+				if string.find(string.lower(cleanTitle), searchText) then
+					debugLog("Found match in title")
+					return true
+				end
 			end
-		end
 
-		if desc then
-			debugLog("Checking description:", desc.Text)
-			if string.find(string.lower(desc.Text), searchText) then
-				debugLog("Found match in description")
-				return true
+			if desc then
+				debugLog("Checking description:", desc.Text)
+				if string.find(string.lower(desc.Text), searchText) then
+					debugLog("Found match in description")
+					return true
+				end
 			end
+
+			return false
 		end
 
-		return false
-	end
+		local function updateSearch()
+			local searchText = string.lower(SearchBox.Text)
+			debugLog("Search text:", searchText)
 
-	local function updateSearch()
-		local searchText = string.lower(SearchBox.Text)
-		debugLog("Search text:", searchText)
+			if not Tab.Container.Visible then
+				debugLog("Tab not visible, skipping search")
+				return
+			end
 
-		if not Tab.Container.Visible then
-			debugLog("Tab not visible, skipping search")
-			return
-		end
+			-- Loop through all children in the container
+			for _, child in ipairs(Tab.Container:GetChildren()) do
+				if child ~= Tab.SearchContainer and child.ClassName ~= "UIListLayout" then
+					if child.Name == "Section" then
+						-- Handle section elements
+						local sectionContainer = child:FindFirstChild("SectionContainer")
+						if sectionContainer then
+							local visible = false
+							debugLog("Checking section:", child.Name)
 
-		-- Loop through all children in the container
-		for _, child in ipairs(Tab.Container:GetChildren()) do
-			if child ~= SearchContainer then
-				if child.Name == "Section" then
-					-- Handle section elements
-					local sectionContainer = child:FindFirstChild("SectionContainer")
-					if sectionContainer then
-						local visible = false
-						debugLog("Checking section:", child.Name)
-
-						-- Search through elements in section
-						for _, element in ipairs(sectionContainer:GetChildren()) do
-							if element.Name == "Element" then
-								local elementVisible = searchInElement(element, searchText)
-								element.Visible = elementVisible or searchText == ""
-								if elementVisible then
-									visible = true
+							-- Search through elements in section
+							for _, element in ipairs(sectionContainer:GetChildren()) do
+								if element.Name == "Element" then
+									local elementVisible = searchInElement(element, searchText)
+									element.Visible = elementVisible or searchText == ""
+									if elementVisible then
+										visible = true
+									end
 								end
 							end
-						end
 
-						-- Show section if any elements match or search is empty
-						child.Visible = visible or searchText == ""
-						debugLog("Section visibility:", child.Visible)
+							-- Show section if any elements match or search is empty
+							child.Visible = visible or searchText == ""
+							debugLog("Section visibility:", child.Visible)
+						end
+					elseif child.Name == "Element" then
+						-- Handle standalone elements
+						local elementVisible = searchInElement(child, searchText)
+						child.Visible = elementVisible or searchText == ""
+						debugLog("Standalone element visibility:", child.Visible)
 					end
-				elseif child.Name == "Element" then
-					-- Handle standalone elements
-					local elementVisible = searchInElement(child, searchText)
-					child.Visible = elementVisible or searchText == ""
-					debugLog("Standalone element visibility:", child.Visible)
 				end
 			end
 		end
+
+		-- Update search when tab is selected
+		AddConnection(Tab.Container:GetPropertyChangedSignal("Visible"), function()
+			if Tab.Container.Visible then
+				updateSearch()
+			end
+		end)
+
+		AddConnection(SearchBox:GetPropertyChangedSignal("Text"), updateSearch)
+		
+		Tab.SearchInitialized = true -- Mark as initialized
 	end
-
-	-- Update search when tab is selected
-	AddConnection(Tab.Container:GetPropertyChangedSignal("Visible"), function()
-		if Tab.Container.Visible then
-			updateSearch()
-		end
-	end)
-
-	AddConnection(SearchBox:GetPropertyChangedSignal("Text"), updateSearch)
 
 	Tab.ContainerFrame = Tab.Container
 
@@ -1434,7 +1491,7 @@ function TabModule:SelectTab(Tab)
     TweenService:Create(
         selectedTab.TabBtn.Line,
         TweenInfo.new(0.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
-        { BackgroundColor3 = CurrentThemeProps.onBgLineBtn }
+        { TextColor3 = CurrentThemeProps.onBgLineBtn }
     ):Play()
 
     task.spawn(function()
