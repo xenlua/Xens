@@ -377,7 +377,7 @@ function FlagsManager:InitSaveSystem(tab)
     })
 
     -- Add Auto Load Config Label (bukan section)
-    ConfigSection:AddLabel({
+    ConfigSection:AddParagraph({
         Title = "Auto Load Config",
         Description = "Current Auto Load Config: " .. (SaveManager_AutoLoadConfig ~= "" and SaveManager_AutoLoadConfig or "None"),
     })
