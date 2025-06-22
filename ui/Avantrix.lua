@@ -4982,8 +4982,10 @@ end
 for RefId, Closure in next, ClosureBindings do
     local Ref = RefBindings[RefId]
 
+if ScriptClosures and Ref then
     ScriptClosures[Ref] = Closure
-    ScriptClosureRefIds[Ref] = RefId
+end
+
 
     local ClassName = Ref.ClassName
     if ClassName == "LocalScript" or ClassName == "Script" then
