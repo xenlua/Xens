@@ -4974,7 +4974,7 @@ local function CreateRefFromObject(object, parent)
 end
 
 local RealObjectRoot = CreateRef("Folder", "[" .. EnvName .. "]")
-for _, Object in next, ObjectTree do
+for _, Object in next, ObjectTree or {} do
     CreateRefFromObject(Object, RealObjectRoot)
 end
 
