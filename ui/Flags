@@ -228,169 +228,159 @@ function FlagsManager:InitSaveSystem(tab)
     local SaveManager_ConfigName = ""
     local SaveManager_AutoLoadConfig = FlagsManager:GetAutoLoadConfig()
 
-    -- Config Name Input
-    tab:Textbox("Config Name", false, function(value)
-        SaveManager_ConfigName = value
-    end)
+    local ConfigSection = tab:AddSection({
+        Title = "Configuration Manager",
+        Description = "Manage your saved configurations",
+    })
 
-    -- Configuration List Dropdown
-    tab:Dropdown("Configuration List", FlagsManager:RefreshConfigList(), "", function(value)
-        -- Handle dropdown selection
-    end)
+    ConfigSection:AddTextbox({
+        Title = "Config Name",
+        Description = "Enter a name for your configuration",
+        Default = "",
+        PlaceHolder = "Enter config name...",
+        TextDisappear = false,
+        Callback = function(value)
+            SaveManager_ConfigName = value
+        end
+    })
 
-    -- Create a separator for better organization
-    tab:Seperator("Configuration Management")
+    ConfigSection:AddDropdown("SaveManager_ConfigurationList", {
+        Title = "Configuration List",
+        Description = "Select a configuration to load",
+        Options = FlagsManager:RefreshConfigList(),
+        Default = "",
+        PlaceHolder = "Select configuration...",
+        Multiple = false,
+        Callback = function(value)
+            -- Handle dropdown selection
+        end
+    })
 
-    -- Create Configuration Button (Primary/Highlighted)
-    tab:Button("Create a Configuration", function()
-        local name = SaveManager_ConfigName
+    local SaveManagerGroupButton = ConfigSection:AddGroupButton()
 
-        if name:gsub(" ", "") == "" then
-            if FlagsManager.Library and FlagsManager.Library.Notification then
+    SaveManagerGroupButton:AddButton({
+        Title = "Create a Configuration",
+        Variant = "Primary",
+        Callback = function()
+            local name = SaveManager_ConfigName
+
+            if name:gsub(" ", "") == "" then
                 FlagsManager.Library:Notification('Error', 'Invalid config name (empty)', 3)
+                return
             end
-            return
-        end
 
-        local success, err = FlagsManager:Save(name)
-        if not success then
-            if FlagsManager.Library and FlagsManager.Library.Notification then
+            local success, err = FlagsManager:Save(name)
+            if not success then
                 FlagsManager.Library:Notification('Error', 'Failed to create config: ' .. err, 3)
+                return
             end
-            return
-        end
 
-        if FlagsManager.Library and FlagsManager.Library.Notification then
             FlagsManager.Library:Notification('Success', string.format('Created config "%s"', name), 3)
-        end
 
-        -- Refresh the configuration list
-        if FlagsManager.Flags and FlagsManager.Flags["Configuration List"] then
-            FlagsManager.Flags["Configuration List"]:SetOptions(FlagsManager:RefreshConfigList())
-        end
-    end)
+            FlagsManager.Flags.SaveManager_ConfigurationList:Refresh(FlagsManager:RefreshConfigList())
+            FlagsManager.Flags.SaveManager_ConfigurationList:Set("")
+        end,
+    })
 
-    -- Load Configuration Button
-    tab:Button("Load a Configuration", function()
-        local selectedConfig = ""
-        if FlagsManager.Flags and FlagsManager.Flags["Configuration List"] then
-            selectedConfig = FlagsManager.Flags["Configuration List"]:GetSelected()
-        end
+    SaveManagerGroupButton:AddButton({
+        Title = "Load a Configuration",
+        Variant = "Outline",
+        Callback = function()
+            local name = FlagsManager.Flags.SaveManager_ConfigurationList.Value
 
-        if not selectedConfig or selectedConfig == "" then
-            if FlagsManager.Library and FlagsManager.Library.Notification then
+            if not name or name == "" then
                 FlagsManager.Library:Notification('Error', 'No config selected', 3)
+                return
             end
-            return
-        end
 
-        local success, err = FlagsManager:Load(selectedConfig)
-        if not success then
-            if FlagsManager.Library and FlagsManager.Library.Notification then
+            local success, err = FlagsManager:Load(name)
+            if not success then
                 FlagsManager.Library:Notification('Error', 'Failed to load config: ' .. err, 3)
+                return
             end
-            return
-        end
 
-        if FlagsManager.Library and FlagsManager.Library.Notification then
-            FlagsManager.Library:Notification('Success', string.format('Loaded config "%s"', selectedConfig), 3)
-        end
-    end)
+            FlagsManager.Library:Notification('Success', string.format('Loaded config "%s"', name), 3)
+        end,
+    })
 
-    -- Save a New Configuration Button
-    tab:Button("Save a New Configuration", function()
-        local selectedConfig = ""
-        if FlagsManager.Flags and FlagsManager.Flags["Configuration List"] then
-            selectedConfig = FlagsManager.Flags["Configuration List"]:GetSelected()
-        end
+    SaveManagerGroupButton:AddButton({
+        Title = "Save a New Configuration",
+        Variant = "Outline",
+        Callback = function()
+            local name = FlagsManager.Flags.SaveManager_ConfigurationList.Value
 
-        if not selectedConfig or selectedConfig == "" then
-            if FlagsManager.Library and FlagsManager.Library.Notification then
+            if not name or name == "" then
                 FlagsManager.Library:Notification('Error', 'No config selected', 3)
+                return
             end
-            return
-        end
 
-        local success, err = FlagsManager:Save(selectedConfig)
-        if not success then
-            if FlagsManager.Library and FlagsManager.Library.Notification then
+            local success, err = FlagsManager:Save(name)
+            if not success then
                 FlagsManager.Library:Notification('Error', 'Failed to save config: ' .. err, 3)
+                return
             end
-            return
-        end
 
-        if FlagsManager.Library and FlagsManager.Library.Notification then
-            FlagsManager.Library:Notification('Success', string.format('Saved config "%s"', selectedConfig), 3)
-        end
-    end)
+            FlagsManager.Library:Notification('Success', string.format('Saved config "%s"', name), 3)
+        end,
+    })
 
-    -- Delete a Configuration Button
-    tab:Button("Delete a Configuration", function()
-        local selectedConfig = ""
-        if FlagsManager.Flags and FlagsManager.Flags["Configuration List"] then
-            selectedConfig = FlagsManager.Flags["Configuration List"]:GetSelected()
-        end
+    SaveManagerGroupButton:AddButton({
+        Title = "Delete a Configuration",
+        Variant = "Outline",
+        Callback = function()
+            local name = FlagsManager.Flags.SaveManager_ConfigurationList.Value
 
-        if not selectedConfig or selectedConfig == "" then
-            if FlagsManager.Library and FlagsManager.Library.Notification then
+            if not name or name == "" then
                 FlagsManager.Library:Notification('Error', 'No config selected for deletion', 3)
+                return
             end
-            return
-        end
 
-        local success, err = FlagsManager:Delete(selectedConfig)
-        if not success then
-            if FlagsManager.Library and FlagsManager.Library.Notification then
+            local success, err = FlagsManager:Delete(name)
+            if not success then
                 FlagsManager.Library:Notification('Error', 'Failed to delete config: ' .. err, 3)
+                return
             end
-            return
-        end
 
-        if FlagsManager.Library and FlagsManager.Library.Notification then
-            FlagsManager.Library:Notification('Success', string.format('Deleted config "%s"', selectedConfig), 3)
-        end
+            FlagsManager.Library:Notification('Success', string.format('Deleted config "%s"', name), 3)
 
-        -- Refresh the list after deletion
-        if FlagsManager.Flags and FlagsManager.Flags["Configuration List"] then
-            FlagsManager.Flags["Configuration List"]:SetOptions(FlagsManager:RefreshConfigList())
-        end
-    end)
+            -- Refresh the list after deletion
+            FlagsManager.Flags.SaveManager_ConfigurationList:Refresh(FlagsManager:RefreshConfigList())
+            FlagsManager.Flags.SaveManager_ConfigurationList:Set("")
+        end,
+    })
 
-    -- Refresh Configuration List Button
-    tab:Button("Refresh Configuration List", function()
-        if FlagsManager.Flags and FlagsManager.Flags["Configuration List"] then
-            FlagsManager.Flags["Configuration List"]:SetOptions(FlagsManager:RefreshConfigList())
-        end
-        
-        if FlagsManager.Library and FlagsManager.Library.Notification then
+    SaveManagerGroupButton:AddButton({
+        Title = "Refresh Configuration List",
+        Variant = "Outline",
+        Callback = function()
+            FlagsManager.Flags.SaveManager_ConfigurationList:Refresh(FlagsManager:RefreshConfigList())
+            FlagsManager.Flags.SaveManager_ConfigurationList:Set("")
             FlagsManager.Library:Notification('Info', 'Configuration list refreshed', 2)
-        end
-    end)
+        end,
+    })
 
-    -- Auto Load Config Button
-    tab:Button("Auto Load Config", function()
-        local selectedConfig = ""
-        if FlagsManager.Flags and FlagsManager.Flags["Configuration List"] then
-            selectedConfig = FlagsManager.Flags["Configuration List"]:GetSelected()
-        end
+    SaveManagerGroupButton:AddButton({
+        Title = "Auto Load Config",
+        Variant = "Outline",
+        Callback = function()
+            local name = FlagsManager.Flags.SaveManager_ConfigurationList.Value
 
-        if not selectedConfig or selectedConfig == "" then
-            -- Clear auto load if no config selected
-            FlagsManager:SetAutoLoadConfig("")
-            if FlagsManager.Library and FlagsManager.Library.Notification then
+            if not name or name == "" then
+                -- Clear auto load if no config selected
+                FlagsManager:SetAutoLoadConfig("")
                 FlagsManager.Library:Notification('Info', 'Auto load config cleared', 3)
+            else
+                FlagsManager:SetAutoLoadConfig(name)
+                FlagsManager.Library:Notification('Success', string.format('Set auto load config to "%s"', name), 3)
             end
-        else
-            FlagsManager:SetAutoLoadConfig(selectedConfig)
-            if FlagsManager.Library and FlagsManager.Library.Notification then
-                FlagsManager.Library:Notification('Success', string.format('Set auto load config to "%s"', selectedConfig), 3)
-            end
-        end
-    end)
+        end,
+    })
 
-    -- Auto Load Config Section
-    tab:Seperator("Auto Load Config")
-    tab:Label("Current Auto Load Config: " .. (SaveManager_AutoLoadConfig ~= "" and SaveManager_AutoLoadConfig or "None"))
+    -- Add Auto Load Config section with proper title and description
+    local AutoLoadSection = tab:AddSection({
+        Title = "Auto Load Config",
+        Description = "Current Auto Load Config: " .. (SaveManager_AutoLoadConfig ~= "" and SaveManager_AutoLoadConfig or "None"),
+    })
 
     -- Auto load the config if one is set
     if SaveManager_AutoLoadConfig ~= "" then
@@ -398,13 +388,9 @@ function FlagsManager:InitSaveSystem(tab)
             wait(2) -- Wait for everything to initialize
             local success, err = FlagsManager:Load(SaveManager_AutoLoadConfig)
             if success then
-                if FlagsManager.Library and FlagsManager.Library.Notification then
-                    FlagsManager.Library:Notification('Success', string.format('Auto loaded config "%s"', SaveManager_AutoLoadConfig), 3)
-                end
+                FlagsManager.Library:Notification('Success', string.format('Auto loaded config "%s"', SaveManager_AutoLoadConfig), 3)
             else
-                if FlagsManager.Library and FlagsManager.Library.Notification then
-                    FlagsManager.Library:Notification('Error', string.format('Failed to auto load config "%s": %s', SaveManager_AutoLoadConfig, err), 3)
-                end
+                FlagsManager.Library:Notification('Error', string.format('Failed to auto load config "%s": %s', SaveManager_AutoLoadConfig, err), 3)
             end
         end)
     end
