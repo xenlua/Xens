@@ -1,4 +1,3 @@
-
 -- Will be used later for getting flattened globals
 local ImportGlobals
 
@@ -1158,6 +1157,25 @@ function TabModule:Init(Window)
 	return TabModule
 end
 
+-- Add cleanup function to properly remove search containers
+function TabModule:CleanupTab(TabIndex)
+	-- Remove search container if it exists
+	if TabModule.SearchContainers[TabIndex] then
+		TabModule.SearchContainers[TabIndex]:Destroy()
+		TabModule.SearchContainers[TabIndex] = nil
+	end
+	
+	-- Remove other references
+	if TabModule.Containers[TabIndex] then
+		TabModule.Containers[TabIndex]:Destroy()
+		TabModule.Containers[TabIndex] = nil
+	end
+	
+	if TabModule.Tabs[TabIndex] then
+		TabModule.Tabs[TabIndex] = nil
+	end
+end
+
 function TabModule:New(Title, Parent)
 	local Library = require(script.Parent.Parent)
 	local Window = TabModule.Window
@@ -1207,8 +1225,22 @@ function TabModule:New(Title, Parent)
 		}),
 	})
 
-	-- Create search container in the tab holder (sidebar)
+	-- Check if search container already exists for this position and remove it
+	local existingSearchContainer = nil
+	for _, child in ipairs(Parent:GetChildren()) do
+		if child.Name == "SearchContainer_" .. TabIndex then
+			existingSearchContainer = child
+			break
+		end
+	end
+	
+	if existingSearchContainer then
+		existingSearchContainer:Destroy()
+	end
+
+	-- Create search container in the tab holder (sidebar) with unique name
 	Tab.SearchContainer = Create("Frame", {
+		Name = "SearchContainer_" .. TabIndex,
 		Size = UDim2.new(1, 0, 0, 36),
 		BackgroundTransparency = 1,
 		Parent = Parent,
@@ -1400,6 +1432,11 @@ function TabModule:New(Title, Parent)
 		return Section
 	end
 
+	-- Add cleanup when tab is destroyed
+	function Tab:Destroy()
+		TabModule:CleanupTab(TabIndex)
+	end
+
 	-- setmetatable(Tab, Elements)
 	return Tab
 end
@@ -1427,29 +1464,33 @@ function TabModule:SelectTab(Tab)
     end
 
     local selectedTab = TabModule.Tabs[Tab]
-    TweenService:Create(
-        selectedTab.TabBtn.Title,
-        TweenInfo.new(0.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
-        { TextColor3 = CurrentThemeProps.onTextBtn }
-    ):Play()
-    TweenService:Create(
-        selectedTab.TabBtn.Line,
-        TweenInfo.new(0.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
-        { BackgroundColor3 = CurrentThemeProps.onBgLineBtn }
-    ):Play()
+    if selectedTab then
+        TweenService:Create(
+            selectedTab.TabBtn.Title,
+            TweenInfo.new(0.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
+            { TextColor3 = CurrentThemeProps.onTextBtn }
+        ):Play()
+        TweenService:Create(
+            selectedTab.TabBtn.Line,
+            TweenInfo.new(0.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
+            { BackgroundColor3 = CurrentThemeProps.onBgLineBtn }
+        ):Play()
 
-    task.spawn(function()
-        for _, Container in pairs(TabModule.Containers) do
-            Container.Visible = false
-        end
+        task.spawn(function()
+            for _, Container in pairs(TabModule.Containers) do
+                Container.Visible = false
+            end
 
-        -- Show search container for selected tab only
-        if TabModule.SearchContainers[Tab] then
-            TabModule.SearchContainers[Tab].Visible = true
-        end
+            -- Show search container for selected tab only
+            if TabModule.SearchContainers[Tab] then
+                TabModule.SearchContainers[Tab].Visible = true
+            end
 
-        TabModule.Containers[Tab].Visible = true
-    end)
+            if TabModule.Containers[Tab] then
+                TabModule.Containers[Tab].Visible = true
+            end
+        end)
+    end
 end
 
 return TabModule
