@@ -297,16 +297,6 @@ function Library:Load(cfgs)
 		Size = UDim2.new(0, 200, 0, 40),
 		ZIndex = 10,
 		Parent = top_frame,
-	}, {
-		-- Add UIGradient for gradient title effect
-		Create("UIGradient", {
-			Color = ColorSequence.new({
-				ColorSequenceKeypoint.new(0.0, Color3.fromRGB(138, 43, 226)), -- Purple
-				ColorSequenceKeypoint.new(0.5, Color3.fromRGB(30, 144, 255)), -- Blue
-				ColorSequenceKeypoint.new(1.0, Color3.fromRGB(0, 191, 255))   -- Light Blue
-			}),
-			Rotation = 45, -- Diagonal gradient
-		})
 	})
 
 	local minimizebtn = Create("TextButton", {
@@ -685,15 +675,6 @@ return function(title, desc, parent)
 			PaddingTop = UDim.new(0, 2),
 			Archivable = true,
 		}),
-		-- Add UIGradient for gradient title effect
-		Create("UIGradient", {
-			Color = ColorSequence.new({
-				ColorSequenceKeypoint.new(0.0, Color3.fromRGB(138, 43, 226)), -- Purple
-				ColorSequenceKeypoint.new(0.5, Color3.fromRGB(30, 144, 255)), -- Blue
-				ColorSequenceKeypoint.new(1.0, Color3.fromRGB(0, 191, 255))   -- Light Blue
-			}),
-			Rotation = 45, -- Diagonal gradient
-		})
 	})
 
 	local description = Create("TextLabel", {
@@ -858,15 +839,6 @@ function Notif:ShowNotification(titleText, descriptionText, duration)
         Create("UIPadding", {
             PaddingLeft = UDim.new(0, 24),
         }),
-        -- Add UIGradient for gradient title effect
-        Create("UIGradient", {
-            Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0.0, Color3.fromRGB(138, 43, 226)), -- Purple
-                ColorSequenceKeypoint.new(0.5, Color3.fromRGB(30, 144, 255)), -- Blue
-                ColorSequenceKeypoint.new(1.0, Color3.fromRGB(0, 191, 255))   -- Light Blue
-            }),
-            Rotation = 45, -- Diagonal gradient
-        })
     })
 
     local description = Create("TextLabel", {
@@ -1051,16 +1023,7 @@ return function(cfgs, Parent)
 		Visible = false,
 		Parent = topbox,
 	}, {
-		chevronIcon,
-		-- Add UIGradient for gradient title effect
-		Create("UIGradient", {
-			Color = ColorSequence.new({
-				ColorSequenceKeypoint.new(0.0, Color3.fromRGB(138, 43, 226)), -- Purple
-				ColorSequenceKeypoint.new(0.5, Color3.fromRGB(30, 144, 255)), -- Blue
-				ColorSequenceKeypoint.new(1.0, Color3.fromRGB(0, 191, 255))   -- Light Blue
-			}),
-			Rotation = 45, -- Diagonal gradient
-		})
+		chevronIcon
 	})
 	if cfgs.description ~= nil and cfgs.description ~= "" then
 	local description = Create("TextLabel", {
@@ -1232,16 +1195,6 @@ function TabModule:New(Title, Parent)
 			Position = UDim2.new(0, 14, 0.5, 0),
 			Size = UDim2.new(0.8, 0, 0.9, 0),
 			Text = Title,
-		}, {
-			-- Add UIGradient for gradient title effect
-			Create("UIGradient", {
-				Color = ColorSequence.new({
-					ColorSequenceKeypoint.new(0.0, Color3.fromRGB(138, 43, 226)), -- Purple
-					ColorSequenceKeypoint.new(0.5, Color3.fromRGB(30, 144, 255)), -- Blue
-					ColorSequenceKeypoint.new(1.0, Color3.fromRGB(0, 191, 255))   -- Light Blue
-				}),
-				Rotation = 45, -- Diagonal gradient
-			})
 		}),
 		Create("Frame", {
 			Name = "Line",
@@ -3310,6 +3263,135 @@ end
 return tools
 
 end)() end
+} -- [RefId] = Closure
+
+-- Holds the actual DOM data
+local ObjectTree = {
+    {
+        1,
+        2,
+        {
+            "MainModule"
+        },
+        {
+            {
+                2,
+                1,
+                {
+                    "components"
+                },
+                {
+                    {
+                        6,
+                        2,
+                        {
+                            "section"
+                        }
+                    },
+                    {
+                        3,
+                        2,
+                        {
+                            "dialog"
+                        }
+                    },
+                    {
+                        5,
+                        2,
+                        {
+                            "notif"
+                        }
+                    },
+                    {
+                        4,
+                        2,
+                        {
+                            "element"
+                        }
+                    },
+                    {
+                        7,
+                        2,
+                        {
+                            "tab"
+                        }
+                    }
+                }
+            },
+            {
+                8,
+                2,
+                {
+                    "elements"
+                },
+                {
+                    {
+                        12,
+                        2,
+                        {
+                            "dropdown"
+                        }
+                    },
+                    {
+                        10,
+                        2,
+                        {
+                            "buttons"
+                        }
+                    },
+                    {
+                        16,
+                        2,
+                        {
+                            "toggle"
+                        }
+                    },
+                    {
+                        11,
+                        2,
+                        {
+                            "colorpicker"
+                        }
+                    },
+                    {
+                        9,
+                        2,
+                        {
+                            "bind"
+                        }
+                    },
+                    {
+                        14,
+                        2,
+                        {
+                            "slider"
+                        }
+                    },
+                    {
+                        13,
+                        2,
+                        {
+                            "paragraph"
+                        }
+                    },
+                    {
+                        15,
+                        2,
+                        {
+                            "textbox"
+                        }
+                    }
+                }
+            },
+            {
+                17,
+                2,
+                {
+                    "tools"
+                }
+            }
+        }
+    }
 }
 
 -- Line offsets for debugging (only included when minifyTables is false)
