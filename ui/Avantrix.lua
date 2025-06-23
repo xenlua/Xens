@@ -164,28 +164,18 @@ function Library:Dialog(config)
 end
 
 function Library:Load(cfgs)
-
 	cfgs = cfgs or {}
-	cfgs.Title = cfgs.Title or "Window"
-	cfgs.KeyAuth = cfgs.KeyAuth or nil
+	cfgs.Title = cfgs.Title or "Xentix UI Library"
 	cfgs.ToggleButton = cfgs.ToggleButton or ""
 	cfgs.BindGui = cfgs.BindGui or Enum.KeyCode.RightControl
+	cfgs.Size = cfgs.Size or UDim2.new(0, 650, 0, 400) -- Added customizable size
+	cfgs.Position = cfgs.Position or UDim2.new(0.5, 0, 0.3, 0) -- Added customizable position
 
 	if Library.Window then
 		print("Cannot create more than one window.")
 		GUI:Destroy()
 	end
 	
-	local auth = game:HttpGet("https://raw.githubusercontent.com/marcopolo655/nothing/refs/heads/main/just%20text.txt")
-	auth = auth:gsub("\n", "")
-		if cfgs.KeyAuth == auth then
-		print("Checked")
-	elseif cfgs.KeyAuth == nil then
-		while true do end
-	else 
-		while true do end
-	end
-
 	Library.Window = GUI
 
 	local canvas_group = Create("CanvasGroup", {
