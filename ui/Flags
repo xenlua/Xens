@@ -311,16 +311,6 @@ local function SafeCreateElement(parent, elementType, config)
         return nil
     end
     
-    -- Untuk GroupButton, config bisa nil atau kosong
-    if elementType == "GroupButton" and not config then
-        config = {}
-    end
-    
-    if not config and elementType ~= "GroupButton" then
-        warn("SafeCreateElement: Config is nil for " .. tostring(elementType))
-        return nil
-    end
-    
     local success, element = pcall(function()
         if elementType == "Section" then
             return parent:AddSection(config)
@@ -329,13 +319,8 @@ local function SafeCreateElement(parent, elementType, config)
         elseif elementType == "Dropdown" then
             return parent:AddDropdown(config.Flag or "TempDropdown", config)
         elseif elementType == "GroupButton" then
-            -- GroupButton biasanya tidak memerlukan config atau memerlukan config kosong
-            if parent.AddGroupButton then
-                return parent:AddGroupButton(config)
-            else
-                warn("SafeCreateElement: Parent does not have AddGroupButton method")
-                return nil
-            end
+            -- Coba panggil AddGroupButton tanpa parameter
+            return parent:AddGroupButton()
         elseif elementType == "Button" then
             return parent:AddButton(config)
         elseif elementType == "Paragraph" then
@@ -451,8 +436,8 @@ function FlagsManager:InitSaveSystem(tab)
         end
     })
 
-    -- Buat Group Button untuk tombol-tombol dengan config kosong
-    local SaveManagerGroupButton = SafeCreateElement(ConfigSection, "GroupButton", {})
+    -- Buat Group Button untuk tombol-tombol - panggil tanpa config
+    local SaveManagerGroupButton = SafeCreateElement(ConfigSection, "GroupButton")
     
     if not SaveManagerGroupButton then
         SafeNotification('Error', 'Failed to create button group', 5)
