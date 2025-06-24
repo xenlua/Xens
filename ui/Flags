@@ -298,9 +298,7 @@ function FlagsManager:InitSaveSystem(tab)
     -- Buat Configuration Section dengan format yang diminta
     local ConfigSection = SafeCreateElement(tab, "Section", {
         Title = gradient("Import/Export Configs"), 
-        Description = "", 
-        Default = false, 
-        Locked = false
+        Description = "",
     })
     
     if not ConfigSection then
