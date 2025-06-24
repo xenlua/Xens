@@ -6,6 +6,72 @@ FlagsManager.Folder = "Avantrix"
 FlagsManager.Ignore = {}
 FlagsManager.Flags = {}
 FlagsManager.Library = nil
+
+-- GRADIENT FUNCTIONS - Dapat digunakan di luar kode ini
+local function interpolate_color(color1, color2, t)
+    local r = math.floor((1 - t) * color1[1] + t * color2[1])
+    local g = math.floor((1 - t) * color1[2] + t * color2[2])
+    local b = math.floor((1 - t) * color1[3] + t * color2[3])
+    return string.format("#%02x%02x%02x", r, g, b)
+end
+
+local function hex_to_rgb(hex)
+    -- Remove # if present
+    if hex:sub(1, 1) == "#" then
+        hex = hex:sub(2)
+    end
+    
+    return {
+        tonumber(hex:sub(1, 2), 16),
+        tonumber(hex:sub(3, 4), 16),
+        tonumber(hex:sub(5, 6), 16)
+    }
+end
+
+local function gradient(word)
+    if not word or #word == 0 then
+        return "Error"
+    end
+
+    local start_color, end_color
+    
+    if getgenv and getgenv().GradientColor == nil then
+        start_color = hex_to_rgb("ea00ff")
+        end_color = hex_to_rgb("5700ff")
+    elseif getgenv and getgenv().GradientColor then
+        start_color = hex_to_rgb(getgenv().GradientColor.startingColor or "ea00ff")
+        end_color = hex_to_rgb(getgenv().GradientColor.endingColor or "5700ff")
+    else
+        -- Fallback jika getgenv tidak tersedia
+        start_color = hex_to_rgb("ea00ff")
+        end_color = hex_to_rgb("5700ff")
+    end
+
+    local gradient_word = ""
+    local word_len = #word
+    local step = 1.0 / math.max(word_len - 1, 1)
+
+    for i = 1, word_len do
+        local t = step * (i - 1)
+        local color = interpolate_color(start_color, end_color, t)
+        gradient_word = gradient_word .. string.format('<font color="%s">%s</font>', color, word:sub(i, i))
+    end
+
+    return gradient_word
+end
+
+-- Export gradient function untuk penggunaan global
+if getgenv then
+    getgenv().gradient = gradient
+    getgenv().interpolate_color = interpolate_color
+    getgenv().hex_to_rgb = hex_to_rgb
+end
+
+-- Juga buat sebagai property dari FlagsManager
+FlagsManager.gradient = gradient
+FlagsManager.interpolate_color = interpolate_color
+FlagsManager.hex_to_rgb = hex_to_rgb
+
 FlagsManager.Parser = {
     Toggle = {
         Save = function(idx, object)
@@ -227,18 +293,26 @@ end
 -- Fungsi helper untuk notifikasi yang aman
 local function SafeNotification(title, message, duration)
     if FlagsManager.Library and FlagsManager.Library.Notification then
-        pcall(function()
+        local success = pcall(function()
             FlagsManager.Library:Notification(title, message, duration or 3)
         end)
+        if not success then
+            print("[FlagsManager] " .. title .. ": " .. message)
+        end
     else
         print("[FlagsManager] " .. title .. ": " .. message)
     end
 end
 
--- Fungsi helper untuk membuat UI element dengan error handling
+-- Fungsi helper untuk membuat UI element dengan error handling yang lebih robust
 local function SafeCreateElement(parent, elementType, config)
     if not parent then
-        warn("SafeCreateElement: Parent is nil")
+        warn("SafeCreateElement: Parent is nil for " .. tostring(elementType))
+        return nil
+    end
+    
+    if not config then
+        warn("SafeCreateElement: Config is nil for " .. tostring(elementType))
         return nil
     end
     
@@ -255,22 +329,32 @@ local function SafeCreateElement(parent, elementType, config)
             return parent:AddButton(config)
         elseif elementType == "Paragraph" then
             return parent:AddParagraph(config)
+        else
+            warn("SafeCreateElement: Unknown element type: " .. tostring(elementType))
+            return nil
         end
     end)
     
     if success and element then
         return element
     else
-        warn("SafeCreateElement: Failed to create " .. elementType)
+        warn("SafeCreateElement: Failed to create " .. tostring(elementType) .. " - " .. tostring(element))
         return nil
     end
 end
 
 function FlagsManager:InitSaveSystem(tab)
-    -- Validasi parameter utama
+    -- Validasi parameter utama dengan pengecekan yang lebih ketat
     if not tab then
         warn("FlagsManager:InitSaveSystem - tab parameter is required")
         SafeNotification('Error', 'Failed to initialize save system: tab parameter is nil', 5)
+        return false
+    end
+    
+    -- Cek apakah tab memiliki method yang diperlukan
+    if type(tab.AddSection) ~= "function" then
+        warn("FlagsManager:InitSaveSystem - tab does not have AddSection method")
+        SafeNotification('Error', 'Invalid tab object provided', 5)
         return false
     end
     
@@ -289,16 +373,35 @@ function FlagsManager:InitSaveSystem(tab)
     end
 
     -- Build folder structure terlebih dahulu
-    FlagsManager:BuildFolderTree()
+    local success = pcall(function()
+        FlagsManager:BuildFolderTree()
+    end)
+    
+    if not success then
+        warn("FlagsManager:InitSaveSystem - Failed to build folder tree")
+        SafeNotification('Error', 'Failed to create folder structure', 5)
+        return false
+    end
 
     -- Variabel untuk menyimpan state
     local SaveManager_ConfigName = ""
-    local SaveManager_AutoLoadConfig = FlagsManager:GetAutoLoadConfig()
+    local SaveManager_AutoLoadConfig = ""
+    
+    -- Safely get auto load config
+    local autoLoadSuccess = pcall(function()
+        SaveManager_AutoLoadConfig = FlagsManager:GetAutoLoadConfig()
+    end)
+    
+    if not autoLoadSuccess then
+        SaveManager_AutoLoadConfig = ""
+    end
 
     -- Buat Configuration Section dengan format yang diminta
     local ConfigSection = SafeCreateElement(tab, "Section", {
         Title = gradient("Import/Export Configs"), 
-        Description = "",
+        Description = "", 
+        Default = false, 
+        Locked = false
     })
     
     if not ConfigSection then
@@ -319,11 +422,16 @@ function FlagsManager:InitSaveSystem(tab)
     })
 
     -- Tambahkan Dropdown untuk daftar konfigurasi
+    local configList = {}
+    pcall(function()
+        configList = FlagsManager:RefreshConfigList()
+    end)
+    
     local ConfigDropdown = SafeCreateElement(ConfigSection, "Dropdown", {
         Flag = "SaveManager_ConfigurationList",
         Title = "Configuration List",
         Description = "Select a configuration to load",
-        Options = FlagsManager:RefreshConfigList(),
+        Options = configList,
         Default = "",
         PlaceHolder = "Select configuration...",
         Multiple = false,
@@ -340,7 +448,7 @@ function FlagsManager:InitSaveSystem(tab)
         return false
     end
 
-    -- Konfigurasi tombol-tombol
+    -- Konfigurasi tombol-tombol dengan error handling yang lebih baik
     local buttonConfigs = {
         {
             Title = "Create Configuration",
@@ -353,37 +461,46 @@ function FlagsManager:InitSaveSystem(tab)
                     return
                 end
 
-                local success, err = FlagsManager:Save(name)
-                if not success then
-                    SafeNotification('Error', 'Failed to create config: ' .. (err or "unknown error"), 3)
+                local success, err = pcall(function()
+                    return FlagsManager:Save(name)
+                end)
+                
+                if not success or not err then
+                    SafeNotification('Error', 'Failed to create config: ' .. tostring(err), 3)
                     return
                 end
 
                 SafeNotification('Success', string.format('Created config "%s"', name), 3)
 
                 -- Refresh dropdown list
-                if FlagsManager.Flags.SaveManager_ConfigurationList then
-                    pcall(function()
+                pcall(function()
+                    if FlagsManager.Flags.SaveManager_ConfigurationList then
                         FlagsManager.Flags.SaveManager_ConfigurationList:Refresh(FlagsManager:RefreshConfigList())
                         FlagsManager.Flags.SaveManager_ConfigurationList:Set("")
-                    end)
-                end
+                    end
+                end)
             end,
         },
         {
             Title = "Load Configuration",
             Variant = "Outline",
             Callback = function()
-                local name = FlagsManager.Flags.SaveManager_ConfigurationList and FlagsManager.Flags.SaveManager_ConfigurationList.Value
+                local name = ""
+                pcall(function()
+                    name = FlagsManager.Flags.SaveManager_ConfigurationList and FlagsManager.Flags.SaveManager_ConfigurationList.Value or ""
+                end)
 
                 if not name or name == "" then
                     SafeNotification('Error', 'Please select a config to load', 3)
                     return
                 end
 
-                local success, err = FlagsManager:Load(name)
-                if not success then
-                    SafeNotification('Error', 'Failed to load config: ' .. (err or "unknown error"), 3)
+                local success, err = pcall(function()
+                    return FlagsManager:Load(name)
+                end)
+                
+                if not success or not err then
+                    SafeNotification('Error', 'Failed to load config: ' .. tostring(err), 3)
                     return
                 end
 
@@ -394,16 +511,22 @@ function FlagsManager:InitSaveSystem(tab)
             Title = "Save Configuration",
             Variant = "Outline",
             Callback = function()
-                local name = FlagsManager.Flags.SaveManager_ConfigurationList and FlagsManager.Flags.SaveManager_ConfigurationList.Value
+                local name = ""
+                pcall(function()
+                    name = FlagsManager.Flags.SaveManager_ConfigurationList and FlagsManager.Flags.SaveManager_ConfigurationList.Value or ""
+                end)
 
                 if not name or name == "" then
                     SafeNotification('Error', 'Please select a config to save', 3)
                     return
                 end
 
-                local success, err = FlagsManager:Save(name)
-                if not success then
-                    SafeNotification('Error', 'Failed to save config: ' .. (err or "unknown error"), 3)
+                local success, err = pcall(function()
+                    return FlagsManager:Save(name)
+                end)
+                
+                if not success or not err then
+                    SafeNotification('Error', 'Failed to save config: ' .. tostring(err), 3)
                     return
                 end
 
@@ -414,40 +537,46 @@ function FlagsManager:InitSaveSystem(tab)
             Title = "Delete Configuration",
             Variant = "Outline",
             Callback = function()
-                local name = FlagsManager.Flags.SaveManager_ConfigurationList and FlagsManager.Flags.SaveManager_ConfigurationList.Value
+                local name = ""
+                pcall(function()
+                    name = FlagsManager.Flags.SaveManager_ConfigurationList and FlagsManager.Flags.SaveManager_ConfigurationList.Value or ""
+                end)
 
                 if not name or name == "" then
                     SafeNotification('Error', 'Please select a config to delete', 3)
                     return
                 end
 
-                local success, err = FlagsManager:Delete(name)
-                if not success then
-                    SafeNotification('Error', 'Failed to delete config: ' .. (err or "unknown error"), 3)
+                local success, err = pcall(function()
+                    return FlagsManager:Delete(name)
+                end)
+                
+                if not success or not err then
+                    SafeNotification('Error', 'Failed to delete config: ' .. tostring(err), 3)
                     return
                 end
 
                 SafeNotification('Success', string.format('Deleted config "%s"', name), 3)
 
                 -- Refresh dropdown list setelah penghapusan
-                if FlagsManager.Flags.SaveManager_ConfigurationList then
-                    pcall(function()
+                pcall(function()
+                    if FlagsManager.Flags.SaveManager_ConfigurationList then
                         FlagsManager.Flags.SaveManager_ConfigurationList:Refresh(FlagsManager:RefreshConfigList())
                         FlagsManager.Flags.SaveManager_ConfigurationList:Set("")
-                    end)
-                end
+                    end
+                end)
             end,
         },
         {
             Title = "Refresh List",
             Variant = "Outline",
             Callback = function()
-                if FlagsManager.Flags.SaveManager_ConfigurationList then
-                    pcall(function()
+                pcall(function()
+                    if FlagsManager.Flags.SaveManager_ConfigurationList then
                         FlagsManager.Flags.SaveManager_ConfigurationList:Refresh(FlagsManager:RefreshConfigList())
                         FlagsManager.Flags.SaveManager_ConfigurationList:Set("")
-                    end)
-                end
+                    end
+                end)
                 SafeNotification('Info', 'Configuration list refreshed', 2)
             end,
         },
@@ -455,21 +584,28 @@ function FlagsManager:InitSaveSystem(tab)
             Title = "Set Auto Load",
             Variant = "Outline",
             Callback = function()
-                local name = FlagsManager.Flags.SaveManager_ConfigurationList and FlagsManager.Flags.SaveManager_ConfigurationList.Value
+                local name = ""
+                pcall(function()
+                    name = FlagsManager.Flags.SaveManager_ConfigurationList and FlagsManager.Flags.SaveManager_ConfigurationList.Value or ""
+                end)
 
                 if not name or name == "" then
                     -- Clear auto load
-                    FlagsManager:SetAutoLoadConfig("")
+                    pcall(function()
+                        FlagsManager:SetAutoLoadConfig("")
+                    end)
                     SafeNotification('Info', 'Auto load config cleared', 3)
                 else
-                    FlagsManager:SetAutoLoadConfig(name)
+                    pcall(function()
+                        FlagsManager:SetAutoLoadConfig(name)
+                    end)
                     SafeNotification('Success', string.format('Set auto load config to "%s"', name), 3)
                 end
             end,
         }
     }
 
-    -- Tambahkan semua tombol
+    -- Tambahkan semua tombol dengan error handling
     for _, buttonConfig in ipairs(buttonConfigs) do
         local button = SafeCreateElement(SaveManagerGroupButton, "Button", buttonConfig)
         if not button then
@@ -487,11 +623,14 @@ function FlagsManager:InitSaveSystem(tab)
     if SaveManager_AutoLoadConfig ~= "" then
         task.spawn(function()
             task.wait(2) -- Tunggu inisialisasi selesai
-            local success, err = FlagsManager:Load(SaveManager_AutoLoadConfig)
-            if success then
+            local success, err = pcall(function()
+                return FlagsManager:Load(SaveManager_AutoLoadConfig)
+            end)
+            
+            if success and err then
                 SafeNotification('Success', string.format('Auto loaded config "%s"', SaveManager_AutoLoadConfig), 3)
             else
-                SafeNotification('Warning', string.format('Failed to auto load config "%s": %s', SaveManager_AutoLoadConfig, err or "unknown error"), 3)
+                SafeNotification('Warning', string.format('Failed to auto load config "%s": %s', SaveManager_AutoLoadConfig, tostring(err)), 3)
             end
         end)
     end
