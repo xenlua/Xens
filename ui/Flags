@@ -295,10 +295,12 @@ function FlagsManager:InitSaveSystem(tab)
     local SaveManager_ConfigName = ""
     local SaveManager_AutoLoadConfig = FlagsManager:GetAutoLoadConfig()
 
-    -- Buat Configuration Section
+    -- Buat Configuration Section dengan format yang diminta
     local ConfigSection = SafeCreateElement(tab, "Section", {
-        Title = "Configuration Manager",
-        Description = "Manage your saved configurations",
+        Title = gradient("Import/Export Configs"), 
+        Description = "", 
+        Default = false, 
+        Locked = false
     })
     
     if not ConfigSection then
