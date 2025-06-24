@@ -70,18 +70,20 @@ FlagsManager.Parser = {
 }
 
 function FlagsManager:SetIgnoreIndexes(list)
+    if not list then return end
     for _, key in next, list do
         FlagsManager.Ignore[key] = true
     end
 end
 
 function FlagsManager:SetFolder(folder)
+    if not folder then return end
     FlagsManager.Folder = folder
     FlagsManager:BuildFolderTree()
 end
 
 function FlagsManager:Save(name)
-    if not name then
+    if not name or name == "" then
         return false, "no config file is selected"
     end
 
@@ -99,7 +101,13 @@ function FlagsManager:Save(name)
             continue
         end
 
-        table.insert(data.objects, FlagsManager.Parser[option.Type].Save(idx, option))
+        local success, result = pcall(function()
+            return FlagsManager.Parser[option.Type].Save(idx, option)
+        end)
+        
+        if success and result then
+            table.insert(data.objects, result)
+        end
     end
 
     local success, encoded = pcall(httpService.JSONEncode, httpService, data)
@@ -107,12 +115,19 @@ function FlagsManager:Save(name)
         return false, "failed to encode data"
     end
 
-    writefile(fullPath, encoded)
+    local writeSuccess = pcall(function()
+        writefile(fullPath, encoded)
+    end)
+    
+    if not writeSuccess then
+        return false, "failed to write file"
+    end
+
     return true
 end
 
 function FlagsManager:Load(name)
-    if not name then
+    if not name or name == "" then
         return false, "no config file is selected"
     end
 
@@ -126,10 +141,16 @@ function FlagsManager:Load(name)
         return false, "decode error"
     end
 
+    if not decoded or not decoded.objects then
+        return false, "invalid config format"
+    end
+
     for _, option in next, decoded.objects do
-        if FlagsManager.Parser[option.type] then
+        if option and option.type and FlagsManager.Parser[option.type] then
             task.spawn(function()
-                FlagsManager.Parser[option.type].Load(option.idx, option)
+                pcall(function()
+                    FlagsManager.Parser[option.type].Load(option.idx, option)
+                end)
             end)
         end
     end
@@ -138,7 +159,7 @@ function FlagsManager:Load(name)
 end
 
 function FlagsManager:Delete(name)
-    if not name then
+    if not name or name == "" then
         return false, "no config file is selected"
     end
 
@@ -167,31 +188,41 @@ function FlagsManager:BuildFolderTree()
     for i = 1, #paths do
         local str = paths[i]
         if not isfolder(str) then
-            makefolder(str)
+            pcall(function()
+                makefolder(str)
+            end)
         end
     end
 end
 
 function FlagsManager:RefreshConfigList()
-    local list = listfiles(FlagsManager.Folder .. "/settings")
+    local success, list = pcall(function()
+        return listfiles(FlagsManager.Folder .. "/settings")
+    end)
+    
+    if not success or not list then
+        return {}
+    end
 
     local out = {}
     for i = 1, #list do
         local file = list[i]
-        if file:sub(-5) == ".json" then
+        if file and file:sub(-5) == ".json" then
             local pos = file:find(".json", 1, true)
-            local start = pos
+            if pos then
+                local start = pos
 
-            local char = file:sub(pos, pos)
-            while char ~= "/" and char ~= "\\" and char ~= "" do
-                pos = pos - 1
-                char = file:sub(pos, pos)
-            end
+                local char = file:sub(pos, pos)
+                while char ~= "/" and char ~= "\\" and char ~= "" and pos > 0 do
+                    pos = pos - 1
+                    char = file:sub(pos, pos)
+                end
 
-            if char == "/" or char == "\\" then
-                local name = file:sub(pos + 1, start - 1)
-                if name ~= "options" then
-                    table.insert(out, name)
+                if (char == "/" or char == "\\") and pos < start - 1 then
+                    local name = file:sub(pos + 1, start - 1)
+                    if name and name ~= "options" and name ~= "" then
+                        table.insert(out, name)
+                    end
                 end
             end
         end
@@ -202,29 +233,47 @@ end
 
 function FlagsManager:GetAutoLoadConfig()
     local autoLoadFile = FlagsManager.Folder .. "/autoload.txt"
-    if isfile(autoLoadFile) then
-        return readfile(autoLoadFile)
-    end
-    return ""
+    local success, content = pcall(function()
+        if isfile(autoLoadFile) then
+            return readfile(autoLoadFile)
+        end
+        return ""
+    end)
+    
+    return success and content or ""
 end
 
 function FlagsManager:SetAutoLoadConfig(configName)
     local autoLoadFile = FlagsManager.Folder .. "/autoload.txt"
-    if configName and configName ~= "" then
-        writefile(autoLoadFile, configName)
-    else
-        if isfile(autoLoadFile) then
-            delfile(autoLoadFile)
+    
+    pcall(function()
+        if configName and configName ~= "" then
+            writefile(autoLoadFile, configName)
+        else
+            if isfile(autoLoadFile) then
+                delfile(autoLoadFile)
+            end
         end
-    end
+    end)
 end
 
 function FlagsManager:SetLibrary(library)
+    if not library then return end
     FlagsManager.Library = library
-    FlagsManager.Flags = library.Flags
+    FlagsManager.Flags = library.Flags or {}
 end
 
 function FlagsManager:InitSaveSystem(tab)
+    if not tab then
+        warn("FlagsManager: Tab is nil, cannot initialize save system")
+        return
+    end
+    
+    if not FlagsManager.Library then
+        warn("FlagsManager: Library is not set, cannot initialize save system")
+        return
+    end
+
     local SaveManager_ConfigName = ""
     local SaveManager_AutoLoadConfig = FlagsManager:GetAutoLoadConfig()
 
@@ -233,6 +282,11 @@ function FlagsManager:InitSaveSystem(tab)
         Description = "Manage your saved configurations",
     })
 
+    if not ConfigSection then
+        warn("FlagsManager: Failed to create ConfigSection")
+        return
+    end
+
     ConfigSection:AddTextbox({
         Title = "Config Name",
         Description = "Enter a name for your configuration",
@@ -240,7 +294,7 @@ function FlagsManager:InitSaveSystem(tab)
         PlaceHolder = "Enter config name...",
         TextDisappear = false,
         Callback = function(value)
-            SaveManager_ConfigName = value
+            SaveManager_ConfigName = value or ""
         end
     })
 
@@ -258,27 +312,40 @@ function FlagsManager:InitSaveSystem(tab)
 
     local SaveManagerGroupButton = ConfigSection:AddGroupButton()
 
+    if not SaveManagerGroupButton then
+        warn("FlagsManager: Failed to create SaveManagerGroupButton")
+        return
+    end
+
     SaveManagerGroupButton:AddButton({
         Title = "Create a Configuration",
         Variant = "Primary",
         Callback = function()
             local name = SaveManager_ConfigName
 
-            if name:gsub(" ", "") == "" then
-                FlagsManager.Library:Notification('Error', 'Invalid config name (empty)', 3)
+            if not name or name:gsub(" ", "") == "" then
+                if FlagsManager.Library and FlagsManager.Library.Notification then
+                    FlagsManager.Library:Notification('Error', 'Invalid config name (empty)', 3)
+                end
                 return
             end
 
             local success, err = FlagsManager:Save(name)
             if not success then
-                FlagsManager.Library:Notification('Error', 'Failed to create config: ' .. err, 3)
+                if FlagsManager.Library and FlagsManager.Library.Notification then
+                    FlagsManager.Library:Notification('Error', 'Failed to create config: ' .. (err or "unknown error"), 3)
+                end
                 return
             end
 
-            FlagsManager.Library:Notification('Success', string.format('Created config "%s"', name), 3)
+            if FlagsManager.Library and FlagsManager.Library.Notification then
+                FlagsManager.Library:Notification('Success', string.format('Created config "%s"', name), 3)
+            end
 
-            FlagsManager.Flags.SaveManager_ConfigurationList:Refresh(FlagsManager:RefreshConfigList())
-            FlagsManager.Flags.SaveManager_ConfigurationList:Set("")
+            if FlagsManager.Flags and FlagsManager.Flags.SaveManager_ConfigurationList then
+                FlagsManager.Flags.SaveManager_ConfigurationList:Refresh(FlagsManager:RefreshConfigList())
+                FlagsManager.Flags.SaveManager_ConfigurationList:Set("")
+            end
         end,
     })
 
@@ -286,20 +353,29 @@ function FlagsManager:InitSaveSystem(tab)
         Title = "Load a Configuration",
         Variant = "Outline",
         Callback = function()
-            local name = FlagsManager.Flags.SaveManager_ConfigurationList.Value
+            local name = ""
+            if FlagsManager.Flags and FlagsManager.Flags.SaveManager_ConfigurationList then
+                name = FlagsManager.Flags.SaveManager_ConfigurationList.Value or ""
+            end
 
             if not name or name == "" then
-                FlagsManager.Library:Notification('Error', 'No config selected', 3)
+                if FlagsManager.Library and FlagsManager.Library.Notification then
+                    FlagsManager.Library:Notification('Error', 'No config selected', 3)
+                end
                 return
             end
 
             local success, err = FlagsManager:Load(name)
             if not success then
-                FlagsManager.Library:Notification('Error', 'Failed to load config: ' .. err, 3)
+                if FlagsManager.Library and FlagsManager.Library.Notification then
+                    FlagsManager.Library:Notification('Error', 'Failed to load config: ' .. (err or "unknown error"), 3)
+                end
                 return
             end
 
-            FlagsManager.Library:Notification('Success', string.format('Loaded config "%s"', name), 3)
+            if FlagsManager.Library and FlagsManager.Library.Notification then
+                FlagsManager.Library:Notification('Success', string.format('Loaded config "%s"', name), 3)
+            end
         end,
     })
 
@@ -307,20 +383,29 @@ function FlagsManager:InitSaveSystem(tab)
         Title = "Save a New Configuration",
         Variant = "Outline",
         Callback = function()
-            local name = FlagsManager.Flags.SaveManager_ConfigurationList.Value
+            local name = ""
+            if FlagsManager.Flags and FlagsManager.Flags.SaveManager_ConfigurationList then
+                name = FlagsManager.Flags.SaveManager_ConfigurationList.Value or ""
+            end
 
             if not name or name == "" then
-                FlagsManager.Library:Notification('Error', 'No config selected', 3)
+                if FlagsManager.Library and FlagsManager.Library.Notification then
+                    FlagsManager.Library:Notification('Error', 'No config selected', 3)
+                end
                 return
             end
 
             local success, err = FlagsManager:Save(name)
             if not success then
-                FlagsManager.Library:Notification('Error', 'Failed to save config: ' .. err, 3)
+                if FlagsManager.Library and FlagsManager.Library.Notification then
+                    FlagsManager.Library:Notification('Error', 'Failed to save config: ' .. (err or "unknown error"), 3)
+                end
                 return
             end
 
-            FlagsManager.Library:Notification('Success', string.format('Saved config "%s"', name), 3)
+            if FlagsManager.Library and FlagsManager.Library.Notification then
+                FlagsManager.Library:Notification('Success', string.format('Saved config "%s"', name), 3)
+            end
         end,
     })
 
@@ -328,24 +413,35 @@ function FlagsManager:InitSaveSystem(tab)
         Title = "Delete a Configuration",
         Variant = "Outline",
         Callback = function()
-            local name = FlagsManager.Flags.SaveManager_ConfigurationList.Value
+            local name = ""
+            if FlagsManager.Flags and FlagsManager.Flags.SaveManager_ConfigurationList then
+                name = FlagsManager.Flags.SaveManager_ConfigurationList.Value or ""
+            end
 
             if not name or name == "" then
-                FlagsManager.Library:Notification('Error', 'No config selected for deletion', 3)
+                if FlagsManager.Library and FlagsManager.Library.Notification then
+                    FlagsManager.Library:Notification('Error', 'No config selected for deletion', 3)
+                end
                 return
             end
 
             local success, err = FlagsManager:Delete(name)
             if not success then
-                FlagsManager.Library:Notification('Error', 'Failed to delete config: ' .. err, 3)
+                if FlagsManager.Library and FlagsManager.Library.Notification then
+                    FlagsManager.Library:Notification('Error', 'Failed to delete config: ' .. (err or "unknown error"), 3)
+                end
                 return
             end
 
-            FlagsManager.Library:Notification('Success', string.format('Deleted config "%s"', name), 3)
+            if FlagsManager.Library and FlagsManager.Library.Notification then
+                FlagsManager.Library:Notification('Success', string.format('Deleted config "%s"', name), 3)
+            end
 
             -- Refresh the list after deletion
-            FlagsManager.Flags.SaveManager_ConfigurationList:Refresh(FlagsManager:RefreshConfigList())
-            FlagsManager.Flags.SaveManager_ConfigurationList:Set("")
+            if FlagsManager.Flags and FlagsManager.Flags.SaveManager_ConfigurationList then
+                FlagsManager.Flags.SaveManager_ConfigurationList:Refresh(FlagsManager:RefreshConfigList())
+                FlagsManager.Flags.SaveManager_ConfigurationList:Set("")
+            end
         end,
     })
 
@@ -353,9 +449,14 @@ function FlagsManager:InitSaveSystem(tab)
         Title = "Refresh Configuration List",
         Variant = "Outline",
         Callback = function()
-            FlagsManager.Flags.SaveManager_ConfigurationList:Refresh(FlagsManager:RefreshConfigList())
-            FlagsManager.Flags.SaveManager_ConfigurationList:Set("")
-            FlagsManager.Library:Notification('Info', 'Configuration list refreshed', 2)
+            if FlagsManager.Flags and FlagsManager.Flags.SaveManager_ConfigurationList then
+                FlagsManager.Flags.SaveManager_ConfigurationList:Refresh(FlagsManager:RefreshConfigList())
+                FlagsManager.Flags.SaveManager_ConfigurationList:Set("")
+            end
+            
+            if FlagsManager.Library and FlagsManager.Library.Notification then
+                FlagsManager.Library:Notification('Info', 'Configuration list refreshed', 2)
+            end
         end,
     })
 
@@ -363,20 +464,27 @@ function FlagsManager:InitSaveSystem(tab)
         Title = "Auto Load Config",
         Variant = "Outline",
         Callback = function()
-            local name = FlagsManager.Flags.SaveManager_ConfigurationList.Value
+            local name = ""
+            if FlagsManager.Flags and FlagsManager.Flags.SaveManager_ConfigurationList then
+                name = FlagsManager.Flags.SaveManager_ConfigurationList.Value or ""
+            end
 
             if not name or name == "" then
                 -- Clear auto load if no config selected
                 FlagsManager:SetAutoLoadConfig("")
-                FlagsManager.Library:Notification('Info', 'Auto load config cleared', 3)
+                if FlagsManager.Library and FlagsManager.Library.Notification then
+                    FlagsManager.Library:Notification('Info', 'Auto load config cleared', 3)
+                end
             else
                 FlagsManager:SetAutoLoadConfig(name)
-                FlagsManager.Library:Notification('Success', string.format('Set auto load config to "%s"', name), 3)
+                if FlagsManager.Library and FlagsManager.Library.Notification then
+                    FlagsManager.Library:Notification('Success', string.format('Set auto load config to "%s"', name), 3)
+                end
             end
         end,
     })
 
-    -- Add Auto Load Config Label (bukan section)
+    -- Add Auto Load Config Label
     ConfigSection:AddParagraph({
         Title = "Auto Load Config",
         Description = "Current Auto Load Config: " .. (SaveManager_AutoLoadConfig ~= "" and SaveManager_AutoLoadConfig or "None"),
@@ -388,9 +496,13 @@ function FlagsManager:InitSaveSystem(tab)
             wait(2) -- Wait for everything to initialize
             local success, err = FlagsManager:Load(SaveManager_AutoLoadConfig)
             if success then
-                FlagsManager.Library:Notification('Success', string.format('Auto loaded config "%s"', SaveManager_AutoLoadConfig), 3)
+                if FlagsManager.Library and FlagsManager.Library.Notification then
+                    FlagsManager.Library:Notification('Success', string.format('Auto loaded config "%s"', SaveManager_AutoLoadConfig), 3)
+                end
             else
-                FlagsManager.Library:Notification('Error', string.format('Failed to auto load config "%s": %s', SaveManager_AutoLoadConfig, err), 3)
+                if FlagsManager.Library and FlagsManager.Library.Notification then
+                    FlagsManager.Library:Notification('Error', string.format('Failed to auto load config "%s": %s', SaveManager_AutoLoadConfig, err or "unknown error"), 3)
+                end
             end
         end)
     end
