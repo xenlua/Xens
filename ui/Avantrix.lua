@@ -1,17 +1,11 @@
--- ++++++++ WAX BUNDLED DATA BELOW ++++++++ --
-
--- Check and destroy existing GUI instances to prevent duplicates
-if (game:GetService("CoreGui")):FindFirstChild("Avantrix") and (game:GetService("CoreGui")):FindFirstChild("ScreenGui") then
-	(game:GetService("CoreGui")).Avantrix:Destroy();
-	(game:GetService("CoreGui")).ScreenGui:Destroy();
-end;
-
 -- Will be used later for getting flattened globals
 local ImportGlobals
 
 -- Holds direct closure data (defining this before the DOM tree for line debugging etc)
 local ClosureBindings = {
     function()local wax,script,require=ImportGlobals(1)local ImportGlobals return (function(...)wait(1)
+
+-- ===== UTILITY FUNCTIONS =====
 function generateRandomString(length)
     local charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-_=+[]{}|;:',.<>?/`~"
     local randomString = ""
@@ -25,27 +19,30 @@ function generateRandomString(length)
     return randomString
 end
 
+-- ===== SERVICE IMPORTS =====
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
 
+-- ===== MODULE IMPORTS =====
 local ElementsTable = require(script.elements)
 local Tools = require(script.tools)
 local Components = script.components
 
+-- ===== TOOL FUNCTIONS =====
 local Create = Tools.Create
 local AddConnection = Tools.AddConnection
 local AddScrollAnim = Tools.AddScrollAnim
 local isMobile = Tools.isMobile()
 local CurrentThemeProps = Tools.GetPropsCurrentTheme()
 
+-- ===== DRAGGABLE FUNCTIONALITY =====
 local function MakeDraggable(DragPoint, Main)
-	-- if isMobile then return end
+	-- Enhanced draggable with better mobile support
 	local Dragging, DragInput, MousePos, FramePos = false
+	
 	AddConnection(DragPoint.InputBegan, function(Input)
-		if
-			Input.UserInputType == Enum.UserInputType.MouseButton1
-			or Input.UserInputType == Enum.UserInputType.Touch
-		then
+		if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
 			Dragging = true
 			MousePos = Input.Position
 			FramePos = Main.Position
@@ -57,42 +54,43 @@ local function MakeDraggable(DragPoint, Main)
 			end)
 		end
 	end)
+	
 	AddConnection(DragPoint.InputChanged, function(Input)
 		if Input.UserInputType == Enum.UserInputType.MouseMovement then
 			DragInput = Input
 		end
 	end)
+	
 	AddConnection(UserInputService.InputChanged, function(Input)
-		if
-			(Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch)
-			and Dragging
-		then
+		if (Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch) and Dragging then
 			local Delta = Input.Position - MousePos
-			Main.Position =
-				UDim2.new(FramePos.X.Scale, FramePos.X.Offset + Delta.X, FramePos.Y.Scale, FramePos.Y.Offset + Delta.Y)
+			Main.Position = UDim2.new(FramePos.X.Scale, FramePos.X.Offset + Delta.X, FramePos.Y.Scale, FramePos.Y.Offset + Delta.Y)
 		end
 	end)
 end
 
+-- ===== MAIN LIBRARY =====
 local Library = {
 	Window = nil,
 	Flags = {},
 	Signals = {},
 	ToggleBind = nil,
+	Version = "2.0.0", -- Added version tracking
+	Author = "Xenon Team", -- Added author info
 }
 
--- Store all connections for cleanup
-local AllConnections = {}
-
+-- ===== GUI CREATION =====
 local GUI = Create("ScreenGui", {
 	Name = generateRandomString(16),
-	Parent = gethui(), --game.Players.LocalPlayer.PlayerGui,
+	Parent = gethui(),
 	ResetOnSpawn = false,
 	ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 })
 
+-- Initialize notification system
 require(Components.notif):Init(GUI)
 
+-- ===== LIBRARY METHODS =====
 function Library:SetTheme(themeName)
 	Tools.SetTheme(themeName)
 end
@@ -106,42 +104,40 @@ function Library:AddTheme(themeName, themeProps)
 end
 
 function Library:IsRunning()
-	return GUI.Parent == gethui() -- game.Players.LocalPlayer.PlayerGui -- testing ver with playergui
+	return GUI.Parent == gethui()
 end
 
--- Cleanup function to stop all scripts and connections
-function Library:Cleanup()
-	-- Disconnect all connections
+-- Enhanced cleanup system
+function Library:Destroy()
+	if GUI then
+		GUI:Destroy()
+	end
 	for i, Connection in pairs(Tools.Signals) do
-		if Connection and Connection.Disconnect then
+		if Connection and Connection.Connected then
 			Connection:Disconnect()
 		end
 	end
-	
-	-- Clear the signals table
-	Tools.Signals = {}
-	
-	-- Destroy GUI
-	if GUI and GUI.Parent then
-		GUI:Destroy()
-	end
-	
-	print("Library cleanup completed - all scripts stopped")
+	table.clear(Tools.Signals)
+	table.clear(self.Flags)
+	table.clear(self.Signals)
 end
 
+-- Background cleanup task
 task.spawn(function()
 	while Library:IsRunning() do
-		task.wait()
+		task.wait(1) -- Check every second instead of every frame
 	end
-	Library:Cleanup()
+	Library:Destroy()
 end)
 
+-- ===== ELEMENTS SYSTEM =====
 local Elements = {}
 Elements.__index = Elements
 Elements.__namecall = function(Table, Key, ...)
 	return Elements[Key](...)
 end
 
+-- Dynamic element registration
 for _, ElementComponent in ipairs(ElementsTable) do
 	assert(ElementComponent.__type, "ElementComponent missing __type")
 	assert(type(ElementComponent.New) == "function", "ElementComponent missing New function")
@@ -150,7 +146,7 @@ for _, ElementComponent in ipairs(ElementsTable) do
 		ElementComponent.Container = self.Container
 		ElementComponent.Type = self.Type
 		ElementComponent.ScrollFrame = self.ScrollFrame
-		ElementComponent.Library = Library -- Assign Library correctly
+		ElementComponent.Library = Library
 
 		return ElementComponent:New(Idx, Config)
 	end
@@ -158,11 +154,11 @@ end
 
 Library.Elements = Elements
 
+-- ===== ENHANCED CALLBACK SYSTEM =====
 function Library:Callback(Callback, ...)
 	local success, result = pcall(Callback, ...)
 
 	if success then
-		-- print(`Callback executed successfully!`)
 		return result
 	else
 		local errorMessage = tostring(result)
@@ -174,57 +170,67 @@ function Library:Callback(Callback, ...)
 			errorInfo = errorInfo .. `Occurred on line: {errorLine}\n`
 		end
 
-		errorInfo = errorInfo
-			.. `Possible Fix: Please check the function implementation for potential issues such as invalid arguments or logic errors at the indicated line number.`
-		print(errorInfo)
+		errorInfo = errorInfo .. `Possible Fix: Please check the function implementation for potential issues such as invalid arguments or logic errors at the indicated line number.`
+		warn(errorInfo) -- Changed from print to warn for better visibility
 	end
 end
 
+-- ===== NOTIFICATION SYSTEM =====
 function Library:Notification(titleText, descriptionText, duration)
-	require(Components.notif):ShowNotification(titleText, descriptionText, duration)
+	require(Components.notif):ShowNotification(titleText, descriptionText, duration or 5)
 end
 
+-- ===== DIALOG SYSTEM =====
 function Library:Dialog(config)
     return require(Components.dialog):Create(config, self.LoadedWindow)
 end
 
+-- ===== MAIN WINDOW CREATION =====
 function Library:Load(cfgs)
-
 	cfgs = cfgs or {}
-	cfgs.Title = cfgs.Title or "Window"
+	cfgs.Title = cfgs.Title or "Xentix UI Library"
 	cfgs.ToggleButton = cfgs.ToggleButton or ""
 	cfgs.BindGui = cfgs.BindGui or Enum.KeyCode.RightControl
+	cfgs.Size = cfgs.Size or UDim2.new(0, 650, 0, 400) -- Added customizable size
+	cfgs.Position = cfgs.Position or UDim2.new(0.5, 0, 0.3, 0) -- Added customizable position
 
 	if Library.Window then
-		print("Cannot create more than one window.")
-		GUI:Destroy()
+		warn("Cannot create more than one window.")
 		return
 	end
-
+	
 	Library.Window = GUI
 
+	-- ===== MAIN CANVAS GROUP =====
 	local canvas_group = Create("CanvasGroup", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		-- BackgroundColor3 = Color3.fromRGB(9, 9, 9),
 		ThemeProps = {
 			BackgroundColor3 = "maincolor",
 		},
-		Position = UDim2.new(0.5, 0, 0.3, 0),
-		Size = UDim2.new(0, 650, 0, 400),
+		Position = cfgs.Position,
+		Size = cfgs.Size,
 		Parent = GUI,
 		Visible = false
 	}, {
 		Create("UICorner", {
 			CornerRadius = UDim.new(0, 6),
 		}),
+		Create("UIStroke", { -- Added border for better visual
+			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+			ThemeProps = {
+				Color = "bordercolor",
+			},
+			Thickness = 1,
+		}),
 	})
 
-	-- shared.Window = canvas_group
-
+	-- Mobile optimization
 	if isMobile then
-		canvas_group.Size = UDim2.new(0.8, 0, 0.8, 0)
+		canvas_group.Size = UDim2.new(0.9, 0, 0.85, 0) -- Better mobile sizing
+		canvas_group.Position = UDim2.new(0.5, 0, 0.5, 0)
 	end
 
+	-- ===== TOGGLE BUTTON =====
 	local togglebtn = Create("ImageButton", {
 		AnchorPoint = Vector2.new(0.5, 0),
 		AutoButtonColor = false,
@@ -247,30 +253,22 @@ function Library:Load(cfgs)
 			Enabled = true,
 			LineJoinMode = Enum.LineJoinMode.Round,
 			Thickness = 1,
-			Archivable = true,
 		}),
 	})
 
+	-- ===== ENHANCED TOGGLE FUNCTIONALITY =====
 	local function ToggleVisibility()
 		local isVisible = canvas_group.Visible
 		local endPosition = isVisible and UDim2.new(0.5, 0, -1, 0) or UDim2.new(0.5, 0, 0.5, 0)
-		local fadeTo = isVisible and 1 or 0
 	
-		local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut)
+		local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.InOut) -- Enhanced easing
 	
 		local positionTween = TweenService:Create(canvas_group, tweenInfo, { Position = endPosition })
-		-- local fadeTween = TweenService:Create(canvas_group, tweenInfo, { BackgroundTransparency = fadeTo })
-		-- local toggleFadeTween = TweenService:Create(togglebtn, tweenInfo, { BackgroundTransparency = fadeTo })
-		-- local toggleFadeSTween = TweenService:Create(togglebtn.UIStroke, tweenInfo, { Transparency = fadeTo })
 	
 		canvas_group.Visible = true
 		togglebtn.Visible = false
 	
 		positionTween:Play()
-		-- fadeTween:Play()
-		-- toggleFadeTween:Play()
-		-- toggleFadeSTween:Play()
-		
 	
 		positionTween.Completed:Connect(function()
 			if isVisible then
@@ -280,9 +278,10 @@ function Library:Load(cfgs)
 		end)
 	end
 
+	-- Initial toggle
 	ToggleVisibility()
-	-- ToggleVisibility()
 
+	-- Event connections
 	MakeDraggable(togglebtn, togglebtn)
 	AddConnection(togglebtn.MouseButton1Click, ToggleVisibility)
 	AddConnection(UserInputService.InputBegan, function(value)
@@ -291,6 +290,7 @@ function Library:Load(cfgs)
 		end
 	end)
 
+	-- ===== TOP FRAME (TITLE BAR) =====
 	local top_frame = Create("Frame", {
 		ThemeProps = {
 			BackgroundColor3 = "maincolor",
@@ -309,6 +309,7 @@ function Library:Load(cfgs)
 		}),
 	})
 
+	-- ===== TITLE LABEL =====
 	local title = Create("TextLabel", {
 		Font = Enum.Font.GothamMedium,
 		RichText = true,
@@ -327,6 +328,7 @@ function Library:Load(cfgs)
 		Parent = top_frame,
 	})
 
+	-- ===== WINDOW CONTROLS =====
 	local minimizebtn = Create("TextButton", {
 		Text = "",
 		BackgroundTransparency = 1,
@@ -349,7 +351,7 @@ function Library:Load(cfgs)
 			Position = UDim2.new(0.5, 0, 0.5, 0),
 			Size = UDim2.new(1, -10, 1, -10),
 			ThemeProps = {
-				BackgroundColor3 = "maincolor",
+				ImageColor3 = "titlecolor", -- Added theme support for icons
 			},
 			BorderSizePixel = 0,
 			ZIndex = 11,
@@ -378,18 +380,20 @@ function Library:Load(cfgs)
 			Position = UDim2.new(0.5, 0, 0.5, 0),
 			Size = UDim2.new(1, -10, 1, -10),
 			ThemeProps = {
-				BackgroundColor3 = "maincolor",
+				ImageColor3 = "titlecolor", -- Added theme support for icons
 			},
 			BorderSizePixel = 0,
 			ZIndex = 11,
 		}),
 	})
 
+	-- Button event connections
 	AddConnection(minimizebtn.MouseButton1Click, ToggleVisibility)
 	AddConnection(closebtn.MouseButton1Click, function()
-		Library:Cleanup() -- Use cleanup function instead of just destroying
+		Library:Destroy() -- Use enhanced destroy method
 	end)
 
+	-- ===== TAB FRAME (SIDEBAR) =====
 	local tab_frame = Create("Frame", {
 		BackgroundTransparency = 1,
 		ThemeProps = {
@@ -403,7 +407,6 @@ function Library:Load(cfgs)
 	}, {
 		Create("UIStroke", {
 			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-			-- Color = Color3.fromRGB(39, 39, 42),
 			ThemeProps = {
 				Color = "bordercolor",
 			},
@@ -411,6 +414,7 @@ function Library:Load(cfgs)
 		}),
 	})
 
+	-- ===== TAB HOLDER (SCROLLABLE) =====
 	local TabHolder = Create("ScrollingFrame", {
 		ThemeProps = {
 			ScrollBarImageColor3 = "scrollcolor",
@@ -433,35 +437,62 @@ function Library:Load(cfgs)
 		}),
 	})
 
+	-- Auto-resize canvas
 	AddConnection(TabHolder.UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"), function()
 		TabHolder.CanvasSize = UDim2.new(0, 0, 0, TabHolder.UIListLayout.AbsoluteContentSize.Y + 28)
 	end)
 
 	AddScrollAnim(TabHolder)
 
+	-- ===== CONTAINER FOLDER =====
 	local containerFolder = Create("Folder", {
 		Parent = canvas_group,
 	})
 
+	-- Make draggable (desktop only)
 	if not isMobile then
 		MakeDraggable(top_frame, canvas_group)
 	end
 
 	Library.LoadedWindow = canvas_group
 
+	-- ===== TAB SYSTEM =====
 	local Tabs = {}
-
 	local TabModule = require(Components.tab):Init(containerFolder)
+	
 	function Tabs:AddTab(title)
 		return TabModule:New(title, TabHolder)
 	end
+	
 	function Tabs:SelectTab(Tab)
 		Tab = Tab or 1
 		TabModule:SelectTab(Tab)
 	end
 
+	-- ===== ENHANCED METHODS =====
+	function Tabs:GetCurrentTab()
+		return TabModule.SelectedTab
+	end
+
+	function Tabs:GetTabCount()
+		return TabModule.TabCount
+	end
+
+	function Tabs:RemoveTab(tabIndex)
+		if TabModule.Tabs[tabIndex] then
+			TabModule:CleanupTab(tabIndex)
+		end
+	end
+
+	-- Auto-select first tab if available
+	if TabModule.TabCount > 0 then
+		Tabs:SelectTab(1)
+	end
+
 	return Tabs
 end
+
+-- ===== LIBRARY RETURN =====
 return Library
 
 end)() end,
@@ -1176,11 +1207,31 @@ local TabModule = {
 	Containers = {},
 	SelectedTab = 0,
 	TabCount = 0,
+	SearchContainers = {}, -- Track search containers separately
 }
 
 function TabModule:Init(Window)
 	TabModule.Window = Window
 	return TabModule
+end
+
+-- Add cleanup function to properly remove search containers
+function TabModule:CleanupTab(TabIndex)
+	-- Remove search container if it exists
+	if TabModule.SearchContainers[TabIndex] then
+		TabModule.SearchContainers[TabIndex]:Destroy()
+		TabModule.SearchContainers[TabIndex] = nil
+	end
+	
+	-- Remove other references
+	if TabModule.Containers[TabIndex] then
+		TabModule.Containers[TabIndex]:Destroy()
+		TabModule.Containers[TabIndex] = nil
+	end
+	
+	if TabModule.Tabs[TabIndex] then
+		TabModule.Tabs[TabIndex] = nil
+	end
 end
 
 function TabModule:New(Title, Parent)
@@ -1231,6 +1282,62 @@ function TabModule:New(Title, Parent)
 			BorderSizePixel = 0,
 		}),
 	})
+
+	-- Check if search container already exists for this position and remove it
+	local existingSearchContainer = nil
+	for _, child in ipairs(Parent:GetChildren()) do
+		if child.Name == "SearchContainer_" .. TabIndex then
+			existingSearchContainer = child
+			break
+		end
+	end
+	
+	if existingSearchContainer then
+		existingSearchContainer:Destroy()
+	end
+
+	-- Create search container in the tab holder (sidebar) with unique name
+	Tab.SearchContainer = Create("Frame", {
+		Name = "SearchContainer_" .. TabIndex,
+		Size = UDim2.new(1, 0, 0, 36),
+		BackgroundTransparency = 1,
+		Parent = Parent,
+		LayoutOrder = TabIndex + 100, -- Ensure it appears after the tab button
+		ThemeProps = {
+			BackgroundColor3 = "maincolor",
+		},
+		Visible = false, -- Initially hidden
+	})
+
+	local SearchBox = Create("TextBox", {
+		Size = UDim2.new(1, -8, 0, 32),
+		Position = UDim2.new(0, 4, 0, 2),
+		PlaceholderText = "Search elements...",
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Text = "",
+		Font = Enum.Font.Gotham,
+		TextSize = 14,
+		BackgroundTransparency = 1,
+		ThemeProps = {
+			TextColor3 = "titlecolor",
+			PlaceholderColor3 = "descriptioncolor",
+		},
+		Parent = Tab.SearchContainer,
+		ClearTextOnFocus = false,
+	}, {
+		Create("UIPadding", {
+			PaddingLeft = UDim.new(0, 8),
+			PaddingRight = UDim.new(0, 8),
+		}),
+		Create("UIStroke", {
+			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+			ThemeProps = {
+				Color = "bordercolor",
+			},
+			Thickness = 1,
+		}),
+	})
+
 	Tab.Container = Create("ScrollingFrame", {
 		CanvasSize = UDim2.new(0, 0, 0, 0),
 		ThemeProps = {
@@ -1256,48 +1363,6 @@ function TabModule:New(Title, Parent)
 	AddConnection(Tab.Container.UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"), function()
 		Tab.Container.CanvasSize = UDim2.new(0, 0, 0, Tab.Container.UIListLayout.AbsoluteContentSize.Y + 28)
 	end)
-
-	-- Add search container at the top of the tab container
-	Tab.SearchContainer = Create("Frame", {
-		Size = UDim2.new(1, 0, 0, 36),
-		BackgroundTransparency = 1,
-		Parent = Parent,
-		LayoutOrder = -1, -- Make sure it appears at the top
-		ThemeProps = {
-			BackgroundColor3 = "maincolor",
-		},
-	})
-
-	local SearchBox = Create("TextBox", {
-		Size = UDim2.new(1, 0, 0, 32),
-		Position = UDim2.new(0, 0, 0, 0),
-		PlaceholderText = "Search elements...",
-		TextXAlignment = Enum.TextXAlignment.Left,
-		Text = "",
-		Font = Enum.Font.Gotham,
-		TextSize = 14,
-		BackgroundTransparency = 1,
-		ThemeProps = {
-			-- BackgroundColor3 = "elementbackground",
-			TextColor3 = "titlecolor",
-			PlaceholderColor3 = "descriptioncolor",
-		},
-		Parent = Tab.SearchContainer,
-		ClearTextOnFocus = false,
-	}, {
-		Create("UIPadding", {
-			PaddingLeft = UDim.new(0, 8),
-			PaddingRight = UDim.new(0, 8),
-		}),
-
-		Create("UIStroke", {
-			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-			ThemeProps = {
-				Color = "bordercolor",
-			},
-			Thickness = 1,
-		}),
-	})
 
 	-- Function to filter elements based on search text
 	local function searchInElement(element, searchText)
@@ -1335,35 +1400,33 @@ function TabModule:New(Title, Parent)
 
 		-- Loop through all children in the container
 		for _, child in ipairs(Tab.Container:GetChildren()) do
-			if child ~= SearchContainer then
-				if child.Name == "Section" then
-					-- Handle section elements
-					local sectionContainer = child:FindFirstChild("SectionContainer")
-					if sectionContainer then
-						local visible = false
-						debugLog("Checking section:", child.Name)
+			if child.Name == "Section" then
+				-- Handle section elements
+				local sectionContainer = child:FindFirstChild("SectionContainer")
+				if sectionContainer then
+					local visible = false
+					debugLog("Checking section:", child.Name)
 
-						-- Search through elements in section
-						for _, element in ipairs(sectionContainer:GetChildren()) do
-							if element.Name == "Element" then
-								local elementVisible = searchInElement(element, searchText)
-								element.Visible = elementVisible or searchText == ""
-								if elementVisible then
-									visible = true
-								end
+					-- Search through elements in section
+					for _, element in ipairs(sectionContainer:GetChildren()) do
+						if element.Name == "Element" then
+							local elementVisible = searchInElement(element, searchText)
+							element.Visible = elementVisible or searchText == ""
+							if elementVisible then
+								visible = true
 							end
 						end
-
-						-- Show section if any elements match or search is empty
-						child.Visible = visible or searchText == ""
-						debugLog("Section visibility:", child.Visible)
 					end
-				elseif child.Name == "Element" then
-					-- Handle standalone elements
-					local elementVisible = searchInElement(child, searchText)
-					child.Visible = elementVisible or searchText == ""
-					debugLog("Standalone element visibility:", child.Visible)
+
+					-- Show section if any elements match or search is empty
+					child.Visible = visible or searchText == ""
+					debugLog("Section visibility:", child.Visible)
 				end
+			elseif child.Name == "Element" then
+				-- Handle standalone elements
+				local elementVisible = searchInElement(child, searchText)
+				child.Visible = elementVisible or searchText == ""
+				debugLog("Standalone element visibility:", child.Visible)
 			end
 		end
 	end
@@ -1385,6 +1448,7 @@ function TabModule:New(Title, Parent)
 
 	TabModule.Containers[TabIndex] = Tab.ContainerFrame
 	TabModule.Tabs[TabIndex] = Tab
+	TabModule.SearchContainers[TabIndex] = Tab.SearchContainer -- Store search container reference
 
 	function Tab:AddSection(cfgs)
 		cfgs = cfgs or {}
@@ -1426,6 +1490,11 @@ function TabModule:New(Title, Parent)
 		return Section
 	end
 
+	-- Add cleanup when tab is destroyed
+	function Tab:Destroy()
+		TabModule:CleanupTab(TabIndex)
+	end
+
 	-- setmetatable(Tab, Elements)
 	return Tab
 end
@@ -1433,7 +1502,7 @@ end
 function TabModule:SelectTab(Tab)
     TabModule.SelectedTab = Tab
 
-    for _, v in next, TabModule.Tabs do
+    for i, v in next, TabModule.Tabs do
         TweenService:Create(
             v.TabBtn.Title,
             TweenInfo.new(0.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
@@ -1447,35 +1516,39 @@ function TabModule:SelectTab(Tab)
         v.Selected = false
         
         -- Hide search container for non-selected tabs
-        if v.SearchContainer then
-            v.SearchContainer.Visible = false
+        if TabModule.SearchContainers[i] then
+            TabModule.SearchContainers[i].Visible = false
         end
     end
 
     local selectedTab = TabModule.Tabs[Tab]
-    TweenService:Create(
-        selectedTab.TabBtn.Title,
-        TweenInfo.new(0.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
-        { TextColor3 = CurrentThemeProps.onTextBtn }
-    ):Play()
-    TweenService:Create(
-        selectedTab.TabBtn.Line,
-        TweenInfo.new(0.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
-        { TextColor3 = CurrentThemeProps.onBgLineBtn }
-    ):Play()
+    if selectedTab then
+        TweenService:Create(
+            selectedTab.TabBtn.Title,
+            TweenInfo.new(0.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
+            { TextColor3 = CurrentThemeProps.onTextBtn }
+        ):Play()
+        TweenService:Create(
+            selectedTab.TabBtn.Line,
+            TweenInfo.new(0.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
+            { BackgroundColor3 = CurrentThemeProps.onBgLineBtn }
+        ):Play()
 
-    task.spawn(function()
-        for _, Container in pairs(TabModule.Containers) do
-            Container.Visible = false
-        end
+        task.spawn(function()
+            for _, Container in pairs(TabModule.Containers) do
+                Container.Visible = false
+            end
 
-        -- Show search container for selected tab
-        if selectedTab.SearchContainer then
-            selectedTab.SearchContainer.Visible = true
-        end
+            -- Show search container for selected tab only
+            if TabModule.SearchContainers[Tab] then
+                TabModule.SearchContainers[Tab].Visible = true
+            end
 
-        TabModule.Containers[Tab].Visible = true
-    end)
+            if TabModule.Containers[Tab] then
+                TabModule.Containers[Tab].Visible = true
+            end
+        end)
+    end
 end
 
 return TabModule
@@ -1699,43 +1772,8 @@ local function ApplyTweens(button, config, uiStroke)
 	end
 end
 
-local function HexToColor3(hex)
-	hex = hex:gsub("#", "")
-	assert(#hex == 6, "Invalid hex color format")
-	local r = tonumber(hex:sub(1, 2), 16)
-	local g = tonumber(hex:sub(3, 4), 16)
-	local b = tonumber(hex:sub(5, 6), 16)
-	return Color3.fromRGB(r, g, b)
-end
-
-
 local function CreateButton(style, text, parent)
-local config
-	if style == "Custom" then
-		assert(customColorHex, "Custom button requires CustomColor")
-		local customColor = HexToColor3(customColorHex)
-		config = {
-			TextColor3 = Color3.fromRGB(255, 255, 255),
-			BackgroundColor3 = customColor,
-			BackgroundTransparency = 0,
-			BorderColor3 = Color3.fromRGB(0, 0, 0),
-			BorderSizePixel = 0,
-			UIStroke = {
-				Color = customColor:Lerp(Color3.new(0, 0, 0), 0.2),
-				Thickness = 1,
-			},
-			HoverConfig = {
-				BackgroundTransparency = 0.1,
-			},
-			FocusConfig = {
-				BackgroundTransparency = 0.2,
-			},
-		}
-	else
-		config = ButtonStyles[style]
-		assert(config, "Invalid button style: " .. style)
-	end
-	-- local config = ButtonStyles[style]
+	local config = ButtonStyles[style]
 	assert(config, "Invalid button style: " .. style)
 
 	local button = Create("TextButton", {
@@ -1824,8 +1862,7 @@ function Element:New(Config)
 	Config.Callback = Config.Callback or function() end
 	local Button = {}
 
-	Button.StyledButton = CreateButton(Config.Variant, Config.Title, self.Container, Config.CustomColor)
-
+	Button.StyledButton = CreateButton(Config.Variant, Config.Title, self.Container)
 	Button.StyledButton.MouseButton1Click:Connect(Config.Callback)
 
 	return Button
@@ -3027,7 +3064,8 @@ local Element = {}
 Element.__index = Element
 Element.__type = "Textbox"
 
-function Element:New(Idx, Config)
+function Element:New(Config)
+    assert(Config, "Textbox - Missing Config table")
     assert(Config.Title, "Textbox - Missing Title")
     Config.Description = Config.Description or nil
     Config.PlaceHolder = Config.PlaceHolder or ""
@@ -3094,7 +3132,6 @@ function Element:New(Idx, Config)
         end
     end)
 
-    self.Library.Flags[Idx] = Textbox
     return Textbox
 end
 
@@ -3197,11 +3234,13 @@ local RunService = game:GetService("RunService")
 
 local tools = { Signals = {} }
 
-local themes = loadstring(game:HttpGet("https://raw.githubusercontent.com/Lunor-Development/Dependencies/refs/heads/main/Apples/Themes"))()
+-- ===== ENHANCED THEME SYSTEM =====
+local themes = loadstring(game:HttpGet("https://raw.githubusercontent.com/Just3itx/3itx-UI-LIB/refs/heads/main/themes"))()
 
 local currentTheme = themes.default
 local themedObjects = {}
 
+-- Enhanced theme management
 function tools.SetTheme(themeName)
 	if themes[themeName] then
 		currentTheme = themes[themeName]
@@ -3214,6 +3253,7 @@ function tools.SetTheme(themeName)
 				end
 			end
 		end
+		print("Theme changed to:", themeName) -- Debug info
 	else
 		warn("Theme not found: " .. themeName)
 	end
@@ -3225,30 +3265,43 @@ end
 
 function tools.AddTheme(themeName, themeProps)
 	themes[themeName] = themeProps
+	print("Theme added:", themeName) -- Debug info
 end
 
+-- ===== ENHANCED MOBILE DETECTION =====
 function tools.isMobile()
-    return UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled and not UserInputService.MouseEnabled
-	-- return true
+    local isTouchDevice = UserInputService.TouchEnabled
+    local hasKeyboard = UserInputService.KeyboardEnabled
+    local hasMouse = UserInputService.MouseEnabled
+    
+    -- More accurate mobile detection
+    return isTouchDevice and not hasKeyboard and not hasMouse
 end
 
+-- ===== ENHANCED CONNECTION MANAGEMENT =====
 function tools.AddConnection(Signal, Function)
-	-- if not Library:IsRunning() then return end
 	local connection = Signal:Connect(Function)
 	table.insert(tools.Signals, connection)
-	return connection -- Return the connection so it can be disconnected later
+	return connection
 end
 
+-- Enhanced disconnect with error handling
 function tools.Disconnect()
 	for key = #tools.Signals, 1, -1 do
 		local Connection = table.remove(tools.Signals, key)
-		Connection:Disconnect()
+		if Connection and Connection.Connected then
+			pcall(function()
+				Connection:Disconnect()
+			end)
+		end
 	end
 end
 
+-- ===== ENHANCED CREATE FUNCTION =====
 function tools.Create(Name, Properties, Children)
 	local Object = Instance.new(Name)
 
+	-- Enhanced theme property handling
 	if Properties.ThemeProps then
 		for propName, themeKey in next, Properties.ThemeProps do
 			if currentTheme[themeKey] then
@@ -3259,15 +3312,24 @@ function tools.Create(Name, Properties, Children)
 		Properties.ThemeProps = nil
 	end
 
+	-- Apply properties with error handling
 	for i, v in next, Properties or {} do
-		Object[i] = v
+		pcall(function()
+			Object[i] = v
+		end)
 	end
+	
+	-- Apply children with error handling
 	for i, v in next, Children or {} do
-		v.Parent = Object
+		pcall(function()
+			v.Parent = Object
+		end)
 	end
+	
 	return Object
 end
 
+-- ===== ENHANCED SCROLL ANIMATION =====
 function tools.AddScrollAnim(scrollbar)
 	local visibleTween = TweenService:Create(scrollbar, TweenInfo.new(0.25), { ScrollBarImageTransparency = 0 })
 	local invisibleTween = TweenService:Create(scrollbar, TweenInfo.new(0.25), { ScrollBarImageTransparency = 1 })
@@ -3284,21 +3346,19 @@ function tools.AddScrollAnim(scrollbar)
 		end
 	end
 
+	-- Enhanced event handling
 	tools.AddConnection(scrollbar.MouseEnter, function()
 		lastInteraction = tick()
 		showScrollbar()
 	end)
 
 	tools.AddConnection(scrollbar.MouseLeave, function()
-		wait(delayTime)
+		task.wait(delayTime)
 		hideScrollbar()
 	end)
 
 	tools.AddConnection(scrollbar.InputChanged, function(input)
-		if
-			input.UserInputType == Enum.UserInputType.MouseMovement
-			or input.UserInputType == Enum.UserInputType.Touch
-		then
+		if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
 			lastInteraction = tick()
 			showScrollbar()
 		end
@@ -3316,17 +3376,68 @@ function tools.AddScrollAnim(scrollbar)
 		end
 	end)
 
-	tools.AddConnection(RunService.RenderStepped, function()
+	-- Use heartbeat for better performance
+	tools.AddConnection(RunService.Heartbeat, function()
 		if tick() - lastInteraction >= delayTime then
 			hideScrollbar()
 		end
 	end)
 end
 
+-- ===== UTILITY FUNCTIONS =====
+function tools.GetScreenSize()
+	local camera = workspace.CurrentCamera
+	return camera.ViewportSize
+end
+
+function tools.IsInViewport(object)
+	if not object or not object.Parent then return false end
+	
+	local camera = workspace.CurrentCamera
+	local viewportSize = camera.ViewportSize
+	local objectPosition = object.AbsolutePosition
+	local objectSize = object.AbsoluteSize
+	
+	return objectPosition.X >= 0 and objectPosition.Y >= 0 and
+		   objectPosition.X + objectSize.X <= viewportSize.X and
+		   objectPosition.Y + objectSize.Y <= viewportSize.Y
+end
+
+-- ===== PERFORMANCE MONITORING =====
+function tools.GetPerformanceStats()
+	local stats = game:GetService("Stats")
+	return {
+		FPS = math.floor(1 / stats.FrameTime * 10) / 10,
+		Ping = math.floor(stats.PerformanceStats.Ping:GetValue() * 100) / 100,
+		Memory = math.floor(stats:GetTotalMemoryUsageMb() * 100) / 100
+	}
+end
+
+-- ===== ENHANCED ERROR HANDLING =====
+function tools.SafeCall(func, ...)
+	local success, result = pcall(func, ...)
+	if not success then
+		warn("SafeCall error:", result)
+	end
+	return success, result
+end
+
+-- ===== CLEANUP FUNCTION =====
+function tools.Cleanup()
+	tools.Disconnect()
+	
+	-- Clear themed objects
+	for i = #themedObjects, 1, -1 do
+		themedObjects[i] = nil
+	end
+	
+	print("Tools cleanup completed")
+end
+
 return tools
 
 end)() end
-} -- [RefId] = Closure
+}
 
 -- Holds the actual DOM data
 local ObjectTree = {
