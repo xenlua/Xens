@@ -35,7 +35,7 @@ end
 
 -- Initialize main GUI
 local main = lib:Load({
-    Title = 'Dungeon Heroes '..formatVersion(LRM_ScriptVersion)..' | ' .. gradient("Avantrix").. " | ",
+    Title = 'Dungeon Hunter '..formatVersion(LRM_ScriptVersion)..' | ' .. gradient("Avantrix").. " | ",
     ToggleButton = "rbxassetid://100227182680708",
 })
 
@@ -44,6 +44,7 @@ local tabs = {
     Welcome = main:AddTab("Information"),
     Main = main:AddTab("OP Farm"),
     Sell = main:AddTab("Sell"),
+    Pet = main:AddTab("Pet"),
     Dungeon = main:AddTab("Lobby"),
     AntiAfk = main:AddTab("Anti-Afk"),
     Settings = main:AddTab("Settings"),
@@ -58,6 +59,8 @@ local sections = {
     MainSettings = tabs.Main:AddSection({Title = "Farm Settings", Description = "Adjust farming parameters", Defualt = false, Locked = false}),
     SellItems = tabs.Sell:AddSection({Title = "Item Selling", Description = "Sell items by rarity", Defualt = true, Locked = false}),
     SellPets = tabs.Sell:AddSection({Title = "Pet Selling", Description = "Sell pets by rarity", Defualt = false, Locked = false}),
+    PetEquipped = tabs.Pet:AddSection({Title = "Equipped Pet", Description = "Level up currently equipped pet", Defualt = true, Locked = false}),
+    PetManagement = tabs.Pet:AddSection({Title = "Pet Management", Description = "Manage all your pets", Defualt = false, Locked = false}),
     DungeonControls = tabs.Dungeon:AddSection({Title = "Dungeon Controls", Description = "Manage dungeon settings", Defualt = true, Locked = false}),
     AntiAfkSection = tabs.AntiAfk:AddSection({Title = "Anti-AFK", Description = "Prevent being kicked for inactivity", Defualt = true, Locked = false}),
 }
@@ -73,7 +76,8 @@ var.WelcomeParagraph = sections.Welcome:AddParagraph({
 
 var.WelcomeParagraph:SetTitle(gradient("Welcome to Avantrix Hub!"))
 var.WelcomeParagraph:SetDesc([[<font color="rgb(255,255,255)">NEWS:</font>
-[/] Added No-Teleport Auto Farm option
+[/] Added Pet Management Tab
+[/] Added Auto Level Up for Equipped Pet
 [/] All features working properly
 
 <b><font color='rgb(255, 255, 255)'>----------------------------------------[Features]--------------------------------------</font></b>
@@ -86,6 +90,7 @@ var.WelcomeParagraph:SetDesc([[<font color="rgb(255,255,255)">NEWS:</font>
 • Auto Farm No Teleport (safer option)
 • Auto Start and Play Again
 • Item and Pet selling by rarity
+• Pet Level Up (Equipped & Manual)
 • Anti-AFK protection
 • Dungeon management
 
@@ -133,6 +138,8 @@ local autoOpenPetChestRunning = false
 local sellItemsRunning = false
 local sellPetsRunning = false
 local antiAfkRunning = false
+local autoLevelUpEquippedPet = false
+local selectedPetForLevelUp = nil
 
 local y = 50
 local tweenspeed = 200
@@ -141,6 +148,52 @@ local selected_difficulties = 1
 local selected_player = 1
 local selectrarity = {"1", "2"} -- Common, Uncommon by default
 local selectrarityPets = {"1", "2"} -- Common, Uncommon by default
+
+-- Pet Management Functions
+local function getEquippedPet()
+    local equipped = local_player.PlayerGui:FindFirstChild("Profile")
+    if equipped then
+        equipped = equipped:FindFirstChild("Equipped")
+        if equipped then
+            equipped = equipped:FindFirstChild("Pet")
+            if equipped then
+                for _, pet in pairs(equipped:GetChildren()) do
+                    if pet:IsA("Folder") or pet:IsA("IntValue") then
+                        return pet
+                    end
+                end
+            end
+        end
+    end
+    return nil
+end
+
+local function getAllPets()
+    local pets = {}
+    local petsFolder = local_player.PlayerGui:FindFirstChild("Profile")
+    if petsFolder then
+        petsFolder = petsFolder:FindFirstChild("Pets")
+        if petsFolder then
+            for _, pet in pairs(petsFolder:GetChildren()) do
+                if pet:IsA("Folder") or pet:IsA("IntValue") then
+                    table.insert(pets, pet.Name)
+                end
+            end
+        end
+    end
+    return pets
+end
+
+local function getPetByName(petName)
+    local petsFolder = local_player.PlayerGui:FindFirstChild("Profile")
+    if petsFolder then
+        petsFolder = petsFolder:FindFirstChild("Pets")
+        if petsFolder then
+            return petsFolder:FindFirstChild(petName)
+        end
+    end
+    return nil
+end
 
 -- Helper functions
 function closest_mob()
@@ -494,6 +547,145 @@ sections.SellPets:AddToggle("SellPets", {
                     task.wait(0.1)
                 end
             end)
+        end
+    end,
+})
+
+-- Pet Management Section
+sections.PetEquipped:AddToggle("AutoLevelUpEquipped", {
+    Title = "Auto Level Up Equipped Pet",
+    Default = false,
+    Description = "Automatically level up the currently equipped pet",
+    Callback = function(value)
+        autoLevelUpEquippedPet = value
+        if value then
+            task.spawn(function()
+                while autoLevelUpEquippedPet do
+                    local equippedPet = getEquippedPet()
+                    if equippedPet then
+                        local LevelUpPet = replicated_storage:WaitForChild("Systems"):WaitForChild("Pets"):WaitForChild("LevelUpPet")
+                        LevelUpPet:FireServer(equippedPet)
+                    end
+                    task.wait(0.1)
+                end
+            end)
+        end
+    end,
+})
+
+sections.PetEquipped:AddButton({
+    Title = "Level Up Equipped Pet Once",
+    Description = "Level up the currently equipped pet one time",
+    Callback = function()
+        local equippedPet = getEquippedPet()
+        if equippedPet then
+            local LevelUpPet = replicated_storage:WaitForChild("Systems"):WaitForChild("Pets"):WaitForChild("LevelUpPet")
+            LevelUpPet:FireServer(equippedPet)
+            lib:Dialog({
+                Title = "Success",
+                Content = "Equipped pet leveled up!",
+                Buttons = {
+                    {
+                        Title = "OK",
+                        Variant = "Primary",
+                        Callback = function() end,
+                    }
+                }
+            })
+        else
+            lib:Dialog({
+                Title = "Error",
+                Content = "No pet is currently equipped!",
+                Buttons = {
+                    {
+                        Title = "OK",
+                        Variant = "Primary",
+                        Callback = function() end,
+                    }
+                }
+            })
+        end
+    end,
+})
+
+-- Pet Management Section
+sections.PetManagement:AddDropdown("PetSelect", {
+    Title = "Select Pet to Level Up",
+    Description = "Choose a pet from your collection",
+    Options = getAllPets(),
+    Default = "",
+    PlaceHolder = "Select pet",
+    Multiple = false,
+    Callback = function(selected)
+        selectedPetForLevelUp = selected[1]
+    end
+})
+
+sections.PetManagement:AddButton({
+    Title = "Refresh Pet List",
+    Description = "Update the pet dropdown with current pets",
+    Callback = function()
+        -- This would need to be implemented by recreating the dropdown
+        -- For now, we'll show a message
+        lib:Dialog({
+            Title = "Info",
+            Content = "Please re-execute the script to refresh the pet list.",
+            Buttons = {
+                {
+                    Title = "OK",
+                    Variant = "Primary",
+                    Callback = function() end,
+                }
+            }
+        })
+    end,
+})
+
+sections.PetManagement:AddButton({
+    Title = "Level Up Selected Pet",
+    Description = "Level up the selected pet one time",
+    Callback = function()
+        if selectedPetForLevelUp then
+            local pet = getPetByName(selectedPetForLevelUp)
+            if pet then
+                local LevelUpPet = replicated_storage:WaitForChild("Systems"):WaitForChild("Pets"):WaitForChild("LevelUpPet")
+                LevelUpPet:FireServer(pet)
+                lib:Dialog({
+                    Title = "Success",
+                    Content = selectedPetForLevelUp .. " has been leveled up!",
+                    Buttons = {
+                        {
+                            Title = "OK",
+                            Variant = "Primary",
+                            Callback = function() end,
+                        }
+                    }
+                })
+            else
+                lib:Dialog({
+                    Title = "Error",
+                    Content = "Selected pet not found!",
+                    Buttons = {
+                        {
+                            Title = "OK",
+                            Variant = "Primary",
+                            Callback = function() end,
+                        }
+                    }
+                })
+            end
+        else
+            lib:Dialog({
+                Title = "Error",
+                Content = "Please select a pet first!",
+                Buttons = {
+                    {
+                        Title = "OK",
+                        Variant = "Primary",
+                        Callback = function() end,
+                    }
+                }
+            })
         end
     end,
 })
