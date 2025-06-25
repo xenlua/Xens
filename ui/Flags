@@ -7,6 +7,160 @@ FlagsManager.Ignore = {}
 FlagsManager.Flags = {}
 FlagsManager.Library = nil
 
+-- Simple Enhanced Avantrix Loader Animation
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local Lighting = game:GetService("Lighting")
+local player = Players.LocalPlayer
+
+-- Enhanced blur effect
+local blur = Instance.new("BlurEffect", Lighting)
+blur.Size = 0
+TweenService:Create(blur, TweenInfo.new(0.6, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = 28}):Play()
+
+local screenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+screenGui.Name = "AvantrixLoader"
+screenGui.ResetOnSpawn = false
+screenGui.IgnoreGuiInset = true
+
+local frame = Instance.new("Frame", screenGui)
+frame.Size = UDim2.new(1, 0, 1, 0)
+frame.BackgroundTransparency = 1
+
+-- Enhanced background with subtle gradient
+local bg = Instance.new("Frame", frame)
+bg.Size = UDim2.new(1, 0, 1, 0)
+bg.BackgroundColor3 = Color3.fromRGB(8, 12, 25)
+bg.BackgroundTransparency = 1
+bg.ZIndex = 0
+
+-- Subtle gradient background
+local bgGradient = Instance.new("UIGradient", bg)
+bgGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(12, 18, 35)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(8, 12, 25)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(15, 22, 40))
+})
+bgGradient.Rotation = 135
+
+TweenService:Create(bg, TweenInfo.new(0.6, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundTransparency = 0.2}):Play()
+
+-- Simple loading dots animation
+local loadingContainer = Instance.new("Frame", frame)
+loadingContainer.Size = UDim2.new(0, 100, 0, 20)
+loadingContainer.AnchorPoint = Vector2.new(0.5, 0.5)
+loadingContainer.Position = UDim2.new(0.5, 0, 0.75, 0)
+loadingContainer.BackgroundTransparency = 1
+loadingContainer.ZIndex = 3
+
+-- Create 3 loading dots
+local dots = {}
+for i = 1, 3 do
+    local dot = Instance.new("Frame", loadingContainer)
+    dot.Size = UDim2.new(0, 8, 0, 8)
+    dot.Position = UDim2.new(0, (i-1) * 25 + 20, 0.5, -4)
+    dot.BackgroundColor3 = Color3.fromRGB(100, 170, 255)
+    dot.BackgroundTransparency = 0.7
+    
+    local corner = Instance.new("UICorner", dot)
+    corner.CornerRadius = UDim.new(1, 0)
+    
+    table.insert(dots, dot)
+end
+
+-- Animate loading dots
+task.spawn(function()
+    while screenGui.Parent do
+        for i, dot in ipairs(dots) do
+            task.spawn(function()
+                TweenService:Create(dot, TweenInfo.new(0.4, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), 
+                    {BackgroundTransparency = 0.2, Size = UDim2.new(0, 12, 0, 12), Position = UDim2.new(0, (i-1) * 25 + 18, 0.5, -6)}):Play()
+                task.wait(0.4)
+                TweenService:Create(dot, TweenInfo.new(0.4, Enum.EasingStyle.Sine, Enum.EasingDirection.In), 
+                    {BackgroundTransparency = 0.7, Size = UDim2.new(0, 8, 0, 8), Position = UDim2.new(0, (i-1) * 25 + 20, 0.5, -4)}):Play()
+            end)
+            task.wait(0.2)
+        end
+        task.wait(0.8)
+    end
+end)
+
+local word = "Avantrix"
+local letters = {}
+
+local function tweenOutAndDestroy()
+    -- Fade out letters with stagger
+    for i, label in ipairs(letters) do
+        task.spawn(function()
+            TweenService:Create(label, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.In), 
+                {TextTransparency = 1, TextSize = 30, Position = UDim2.new(0.5, (i - (#word / 2 + 0.5)) * 65, 0.5, -20)}):Play()
+        end)
+        task.wait(0.08)
+    end
+    
+    -- Fade out loading dots
+    for _, dot in ipairs(dots) do
+        TweenService:Create(dot, TweenInfo.new(0.5), {BackgroundTransparency = 1}):Play()
+    end
+    
+    -- Fade out background and blur
+    TweenService:Create(bg, TweenInfo.new(0.6, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {BackgroundTransparency = 1}):Play()
+    TweenService:Create(blur, TweenInfo.new(0.6, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {Size = 0}):Play()
+    
+    task.wait(0.8)
+    screenGui:Destroy()
+    blur:Destroy()
+end
+
+-- Create letters with enhanced but simple animation
+for i = 1, #word do
+    local char = word:sub(i, i)
+
+    local label = Instance.new("TextLabel")
+    label.Text = char
+    label.Font = Enum.Font.GothamBlack
+    label.TextColor3 = Color3.new(1, 1, 1)
+    label.TextStrokeTransparency = 0.6
+    label.TextStrokeColor3 = Color3.fromRGB(40, 80, 140)
+    label.TextTransparency = 1
+    label.TextScaled = false
+    label.TextSize = 20
+    label.Size = UDim2.new(0, 60, 0, 60)
+    label.AnchorPoint = Vector2.new(0.5, 0.5)
+    label.Position = UDim2.new(0.5, (i - (#word / 2 + 0.5)) * 65, 0.5, 20)
+    label.BackgroundTransparency = 1
+    label.Parent = frame
+    label.ZIndex = 2
+
+    -- Enhanced gradient with more colors
+    local gradient = Instance.new("UIGradient")
+    gradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(120, 190, 255)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(80, 150, 255)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(50, 110, 200))
+    })
+    gradient.Rotation = 90
+    gradient.Parent = label
+
+    -- Smooth entrance animation with bounce
+    local tweenIn = TweenService:Create(label, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), 
+        {TextTransparency = 0, TextSize = 68, Position = UDim2.new(0.5, (i - (#word / 2 + 0.5)) * 65, 0.5, 0)})
+    tweenIn:Play()
+
+    -- Add subtle floating animation after entrance
+    tweenIn.Completed:Connect(function()
+        local floatTween = TweenService:Create(label, TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), 
+            {Position = UDim2.new(0.5, (i - (#word / 2 + 0.5)) * 65, 0.5, math.random(-3, 3))})
+        floatTween:Play()
+    end)
+
+    table.insert(letters, label)
+    task.wait(0.2)
+end
+
+task.wait(2.5)
+tweenOutAndDestroy()
+
 -- GRADIENT FUNCTIONS - Dapat digunakan di luar kode ini
 local function interpolate_color(color1, color2, t)
     local r = math.floor((1 - t) * color1[1] + t * color2[1])
