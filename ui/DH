@@ -1,0 +1,697 @@
+-- Load Avantrix Library
+local lib = loadstring(game:HttpGet("https://raw.githubusercontent.com/xenlua/Xens/refs/heads/main/ui/Avantrix.lua"))() 
+local FlagsManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/xenlua/Xens/refs/heads/main/ui/Flags"))()
+
+local LPH_JIT_MAX = function(...) return(...) end;
+local LPH_NO_VIRTUALIZE = function(...) return(...) end;
+local LPH_CRASH = function(...) while task.wait() do game:GetService("ScriptContext"):SetTimeout(math.huge);while true do while true do while true do while true do while true do while true do while true do while true do print("noob") end end end end end end end end end end;
+local LRM_UserNote = "Owner"
+local LRM_ScriptVersion = "v10"
+local ClonedPrint = print
+
+if LPH_OBFUSCATED then
+    ClonedPrint = print
+    print = function(...)end
+    warn = function(...)end
+
+    local PreventSkidsToMakeGayThings = loadstring(game:HttpGet("https://raw.githubusercontent.com/Hosvile/InfiniX/a40a158d22fd4f4733beb2f67379866ccb17906f/Library/Anti/AntiDebug/main.lua", true))()
+
+    if not (type(PreventSkidsToMakeGayThings) == "table") then
+        LPH_CRASH()
+    end
+end
+
+-- Avantrix Loader Animation
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local Lighting = game:GetService("Lighting")
+local player = Players.LocalPlayer
+
+local blur = Instance.new("BlurEffect", Lighting)
+blur.Size = 0
+TweenService:Create(blur, TweenInfo.new(0.5), {Size = 24}):Play()
+
+local screenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+screenGui.Name = "AvantrixLoader"
+screenGui.ResetOnSpawn = false
+screenGui.IgnoreGuiInset = true
+
+local frame = Instance.new("Frame", screenGui)
+frame.Size = UDim2.new(1, 0, 1, 0)
+frame.BackgroundTransparency = 1
+
+local bg = Instance.new("Frame", frame)
+bg.Size = UDim2.new(1, 0, 1, 0)
+bg.BackgroundColor3 = Color3.fromRGB(10, 10, 20)
+bg.BackgroundTransparency = 1
+bg.ZIndex = 0
+TweenService:Create(bg, TweenInfo.new(0.5), {BackgroundTransparency = 0.3}):Play()
+
+local word = "Avantrix"
+local letters = {}
+
+local function tweenOutAndDestroy()
+    for _, label in ipairs(letters) do
+        TweenService:Create(label, TweenInfo.new(0.3), {TextTransparency = 1, TextSize = 20}):Play()
+    end
+    TweenService:Create(bg, TweenInfo.new(0.5), {BackgroundTransparency = 1}):Play()
+    TweenService:Create(blur, TweenInfo.new(0.5), {Size = 0}):Play()
+    wait(0.6)
+    screenGui:Destroy()
+    blur:Destroy()
+end
+
+for i = 1, #word do
+    local char = word:sub(i, i)
+
+    local label = Instance.new("TextLabel")
+    label.Text = char
+    label.Font = Enum.Font.GothamBlack
+    label.TextColor3 = Color3.new(1, 1, 1)
+    label.TextStrokeTransparency = 1 
+    label.TextTransparency = 1
+    label.TextScaled = false
+    label.TextSize = 30 
+    label.Size = UDim2.new(0, 60, 0, 60)
+    label.AnchorPoint = Vector2.new(0.5, 0.5)
+    label.Position = UDim2.new(0.5, (i - (#word / 2 + 0.5)) * 65, 0.5, 0)
+    label.BackgroundTransparency = 1
+    label.Parent = frame
+
+    local gradient = Instance.new("UIGradient")
+    gradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(100, 170, 255)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(50, 100, 160))
+    })
+    gradient.Rotation = 90
+    gradient.Parent = label
+
+    local tweenIn = TweenService:Create(label, TweenInfo.new(0.3), {TextTransparency = 0, TextSize = 60})
+    tweenIn:Play()
+
+    table.insert(letters, label)
+    wait(0.25)
+end
+
+wait(2)
+tweenOutAndDestroy()
+
+repeat task.wait() until game.Players.LocalPlayer and game.Players.LocalPlayer.Character
+
+if not game:IsLoaded() then
+    game.Loaded:Wait()
+end
+
+-- Format version function
+function formatVersion(version)
+    local formattedVersion = "v" .. version:sub(2):gsub(".", "%0.")
+    return formattedVersion:sub(1, #formattedVersion - 1)
+end
+
+-- Initialize main GUI
+local main = lib:Load({
+    Title = 'Dungeon Hunter '..formatVersion(LRM_ScriptVersion)..' | ' .. gradient("Avantrix").. " | ",
+    ToggleButton = "rbxassetid://100227182680708",
+})
+
+-- Create tabs
+local tabs = {
+    Welcome = main:AddTab("Information"),
+    Main = main:AddTab("OP Farm"),
+    Sell = main:AddTab("Sell"),
+    Dungeon = main:AddTab("Lobby"),
+    AntiAfk = main:AddTab("Anti-Afk"),
+    Settings = main:AddTab("Settings"),
+}
+
+main:SelectTab()
+
+-- Create sections
+local sections = {
+    Welcome = tabs.Welcome:AddSection({Defualt = true, Locked = true}),
+    MainFarm = tabs.Main:AddSection({Title = "Farm Controls", Description = "Main farming features", Defualt = true, Locked = false}),
+    MainSettings = tabs.Main:AddSection({Title = "Farm Settings", Description = "Adjust farming parameters", Defualt = false, Locked = false}),
+    SellItems = tabs.Sell:AddSection({Title = "Item Selling", Description = "Sell items by rarity", Defualt = true, Locked = false}),
+    SellPets = tabs.Sell:AddSection({Title = "Pet Selling", Description = "Sell pets by rarity", Defualt = false, Locked = false}),
+    DungeonControls = tabs.Dungeon:AddSection({Title = "Dungeon Controls", Description = "Manage dungeon settings", Defualt = true, Locked = false}),
+    AntiAfkSection = tabs.AntiAfk:AddSection({Title = "Anti-AFK", Description = "Prevent being kicked for inactivity", Defualt = true, Locked = false}),
+}
+
+-- Variables
+local var = {}
+
+-- Initialize welcome paragraph
+var.WelcomeParagraph = sections.Welcome:AddParagraph({
+    Title = gradient("Loading..."), 
+    Description = "Please wait..\nIf you've been stuck on this for a long time please join our discord and report it.\nYou could also try:\n- Re-execute\n- Rejoin"
+})
+
+var.WelcomeParagraph:SetTitle(gradient("Welcome to Avantrix Hub!"))
+var.WelcomeParagraph:SetDesc([[<font color="rgb(255,255,255)">NEWS:</font>
+[/] Added No-Teleport Auto Farm option
+[/] All features working properly
+
+<b><font color='rgb(255, 255, 255)'>----------------------------------------[Features]--------------------------------------</font></b>
+
+<font color="rgb(255,255,255)">Version:</font> ]] .. formatVersion(LRM_ScriptVersion) .. [[
+
+<font color="rgb(255,255,255)">Features:</font>
+• Kill Aura for automatic combat
+• Auto Farm Dungeon with teleportation
+• Auto Farm No Teleport (safer option)
+• Auto Start and Play Again
+• Item and Pet selling by rarity
+• Anti-AFK protection
+• Dungeon management
+
+<font color="rgb(255,255,255)">Instructions:</font>
+1. Configure your farming preferences
+2. Select dungeon settings
+3. Enable desired features
+4. Join our Discord for support
+
+<font color="rgb(255,255,255)">Discord:</font> discord.gg/cF8YeDPt2G]])
+
+-- Add Discord button
+sections.Welcome:AddButton({
+    Title = "Copy Discord Link",
+    Callback = function()
+        setclipboard("https://discord.gg/cF8YeDPt2G")
+        lib:Dialog({
+            Title = "Success",
+            Content = "Discord link copied to clipboard!",
+            Buttons = {
+                {
+                    Title = "OK",
+                    Variant = "Primary",
+                    Callback = function() end,
+                }
+            }
+        })
+    end,
+})
+
+-- Game Services
+local replicated_storage = cloneref(game:GetService("ReplicatedStorage"))
+local workspace = cloneref(game:GetService("Workspace"))
+local local_player = cloneref(game:GetService("Players").LocalPlayer)
+local tween_service = cloneref(game:GetService("TweenService"))
+local run_service = cloneref(game:GetService("RunService"))
+
+-- Variables for farming (using proper boolean tracking instead of GetFlag)
+local killAuraRunning = false
+local autoStartRunning = false
+local autoPlayAgainRunning = false
+local goto_closest = false
+local autoFarmNoTeleport = false
+local autoOpenPetChestRunning = false
+local sellItemsRunning = false
+local sellPetsRunning = false
+local antiAfkRunning = false
+
+local y = 50
+local tweenspeed = 200
+local selected_dungeon = "AstralDungeon"
+local selected_difficulties = 1
+local selected_player = 1
+local selectrarity = {"1", "2"} -- Common, Uncommon by default
+local selectrarityPets = {"1", "2"} -- Common, Uncommon by default
+
+-- Helper functions
+function closest_mob()
+    local mob = nil
+    local distance = math.huge
+    local enemies = workspace:FindFirstChild("Mobs")
+
+    if not enemies then return nil end
+
+    for _, v in next, enemies:GetChildren() do
+        if not v:GetAttribute("Owner") and v:GetAttribute("HP") > 0 and v.Name ~= "Side Room Rune Disabled" and v.Name ~= "TargetDummy" then
+            local dist = (v:GetPivot().Position - local_player.Character:GetPivot().Position).Magnitude
+            if dist < distance then
+                distance = dist
+                mob = v
+            end
+        end
+    end
+
+    return mob
+end
+
+function walkToMob(mob)
+    if not mob or not local_player.Character or not local_player.Character:FindFirstChild("Humanoid") then
+        return
+    end
+    
+    local humanoid = local_player.Character.Humanoid
+    local targetPosition = mob:GetPivot().Position
+    
+    -- Use Humanoid:MoveTo for natural walking movement
+    humanoid:MoveTo(targetPosition)
+    
+    -- Wait until we're close enough or the mob is dead
+    local startTime = tick()
+    while autoFarmNoTeleport and mob.Parent and mob:GetAttribute("HP") > 0 do
+        local distance = (local_player.Character:GetPivot().Position - targetPosition).Magnitude
+        if distance < 10 or tick() - startTime > 5 then -- Stop if close enough or timeout
+            break
+        end
+        task.wait(0.1)
+    end
+end
+
+-- Main Farm Section
+sections.MainFarm:AddToggle("KillAura", {
+    Title = "Kill Aura",
+    Default = false,
+    Description = "Automatically attack nearby enemies",
+    Callback = function(value)
+        killAuraRunning = value
+        if value then
+            task.spawn(function()
+                local enemies = workspace:FindFirstChild("Mobs")
+                local delay = 0.3
+
+                while killAuraRunning do
+                    if enemies then
+                        local mobs = {}
+                        for _, v in ipairs(enemies:GetChildren()) do
+                            table.insert(mobs, v)
+                        end
+
+                        replicated_storage:WaitForChild("Systems")
+                            :WaitForChild("Combat")
+                            :WaitForChild("PlayerAttack")
+                            :FireServer(mobs)
+                    end
+                    task.wait(delay)
+                end
+            end)
+        end
+    end,
+})
+
+sections.MainFarm:AddToggle("AutoStart", {
+    Title = "Auto Start",
+    Default = false,
+    Description = "Automatically start dungeons",
+    Callback = function(value)
+        autoStartRunning = value
+        if value then
+            task.spawn(function()
+                while autoStartRunning do
+                    game:GetService("ReplicatedStorage"):WaitForChild("Systems"):WaitForChild("Dungeons"):WaitForChild("TriggerStartDungeon"):FireServer()
+                    wait(0.1)
+                end
+            end)
+        end
+    end,
+})
+
+sections.MainFarm:AddToggle("AutoPlayAgain", {
+    Title = "Play Again",
+    Default = false,
+    Description = "Automatically play again after dungeon completion",
+    Callback = function(value)
+        autoPlayAgainRunning = value
+        if value then
+            task.spawn(function()
+                while autoPlayAgainRunning do
+                    local args = {"GoAgain"}
+                    game:GetService("ReplicatedStorage"):WaitForChild("Systems"):WaitForChild("Dungeons"):WaitForChild("SetExitChoice"):FireServer(unpack(args))
+                    wait(0.1)
+                end
+            end)
+        end
+    end,
+})
+
+sections.MainFarm:AddToggle("AutoFarm", {
+    Title = "Auto Farm Dungeon (Teleport)",
+    Default = false,
+    Description = "Automatically farm dungeons by teleporting to mobs",
+    Callback = function(value)
+        goto_closest = value
+        if value then
+            task.spawn(function()
+                while goto_closest do
+                    local mob = closest_mob()
+                    if mob then
+                        task.wait(.1)
+                        local velocity_connection = run_service.Heartbeat:Connect(function()
+                            if local_player.Character and local_player.Character:FindFirstChild("HumanoidRootPart") then
+                                local_player.Character.HumanoidRootPart.AssemblyLinearVelocity = Vector3.zero
+                                local_player.Character.HumanoidRootPart.AssemblyAngularVelocity = Vector3.zero
+                            end
+                        end)
+                        local character = local_player.Character
+                        local hrp = character and character:FindFirstChild("HumanoidRootPart")
+                        if hrp and mob then
+                            local to = mob:GetPivot().Position
+                            local distance = (to - hrp.Position).Magnitude
+                            local tween = tween_service:Create(hrp, TweenInfo.new(distance / tweenspeed, Enum.EasingStyle.Linear, Enum.EasingDirection.Out), {
+                                CFrame = CFrame.new(to + Vector3.new(0, y, 0))
+                            })
+                            tween:Play()
+                            tween.Completed:Wait()
+                        end
+                        if velocity_connection then
+                            velocity_connection:Disconnect()
+                        end
+                    end
+                    task.wait()
+                end
+            end)
+        end
+    end,
+})
+
+sections.MainFarm:AddToggle("AutoFarmNoTeleport", {
+    Title = "Auto Farm No Teleport (Safe)",
+    Default = false,
+    Description = "Automatically farm dungeons by walking to mobs (safer, no teleportation)",
+    Callback = function(value)
+        autoFarmNoTeleport = value
+        if value then
+            task.spawn(function()
+                while autoFarmNoTeleport do
+                    local mob = closest_mob()
+                    if mob then
+                        walkToMob(mob)
+                        -- Small delay after reaching mob
+                        task.wait(0.5)
+                    else
+                        -- No mobs found, wait a bit longer
+                        task.wait(1)
+                    end
+                end
+            end)
+        end
+    end,
+})
+
+sections.MainFarm:AddToggle("AutoOpenPetChest", {
+    Title = "Open All Pet Chest",
+    Default = false,
+    Description = "Automatically open all pet chests in inventory",
+    Callback = function(value)
+        autoOpenPetChestRunning = value
+        if value then
+            task.spawn(function()
+                while autoOpenPetChestRunning do
+                    local inventory = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild("Profile"):FindFirstChild("Inventory")
+                    if inventory then
+                        for _, petchest in pairs(inventory:GetChildren()) do
+                            local count = petchest:FindFirstChild("Count")
+                            if count then
+                                local args = {petchest, 1}
+                                game:GetService("ReplicatedStorage"):WaitForChild("Systems"):WaitForChild("Pets"):WaitForChild("OpenPetChest"):FireServer(unpack(args))
+                            end
+                        end
+                    end
+                    task.wait(0.1)
+                end
+            end)
+        end
+    end,
+})
+
+-- Main Settings Section
+sections.MainSettings:AddSlider("TweenSpeed", {
+    Title = "Tween Speed",
+    Description = "Adjust until you're not getting kicked",
+    Default = 200,
+    Min = 20,
+    Max = 300,
+    Increment = 1,
+    Callback = function(value)
+        tweenspeed = value
+    end,
+})
+
+sections.MainSettings:AddSlider("Distance", {
+    Title = "Distance Y from mobs",
+    Description = "Vertical distance from mobs when farming",
+    Default = 50,
+    Min = -100,
+    Max = 100,
+    Increment = 1,
+    Callback = function(value)
+        y = value
+    end,
+})
+
+-- Sell Items Section
+sections.SellItems:AddDropdown("ItemRarity", {
+    Title = "Select Item Rarity",
+    Description = "Choose which item rarities to sell",
+    Options = {"Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic"},
+    Default = {"Common", "Uncommon"},
+    PlaceHolder = "Select rarities",
+    Multiple = true,
+    Callback = function(selected)
+        local rarityMap = {
+            Common = "1",
+            Uncommon = "2",
+            Rare = "3",
+            Epic = "4",
+            Legendary = "5",
+            Mythic = "6",
+        }
+        
+        local converted = {}
+        for _, rarityName in pairs(selected) do
+            if rarityMap[rarityName] then
+                table.insert(converted, rarityMap[rarityName])
+            end
+        end
+        selectrarity = converted
+    end
+})
+
+sections.SellItems:AddToggle("SellItems", {
+    Title = "Sell Items",
+    Default = false,
+    Description = "Automatically sell items of selected rarities",
+    Callback = function(value)
+        sellItemsRunning = value
+        if value then
+            task.spawn(function()
+                while sellItemsRunning do
+                    local player = game:GetService("Players").LocalPlayer
+                    local inventory = player:WaitForChild("PlayerGui"):FindFirstChild("Profile"):FindFirstChild("Inventory")
+
+                    if inventory then
+                        local itemsToSell = {}
+
+                        for _, item in pairs(inventory:GetChildren()) do
+                            local rarity = item:FindFirstChild("Rarity")
+                            if rarity and table.find(selectrarity, tostring(rarity.Value)) then
+                                table.insert(itemsToSell, item)
+                            end
+                        end
+
+                        if #itemsToSell > 0 then
+                            local args = {itemsToSell, {}}
+                            game:GetService("ReplicatedStorage")
+                                :WaitForChild("Systems")
+                                :WaitForChild("ItemSelling")
+                                :WaitForChild("SellItem")
+                                :FireServer(unpack(args))
+                        end
+                    end
+                    task.wait(0.1)
+                end
+            end)
+        end
+    end,
+})
+
+-- Sell Pets Section
+sections.SellPets:AddDropdown("PetRarity", {
+    Title = "Select Pet Rarity",
+    Description = "Choose which pet rarities to sell",
+    Options = {"Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic"},
+    Default = {"Common", "Uncommon"},
+    PlaceHolder = "Select rarities",
+    Multiple = true,
+    Callback = function(selected)
+        local rarityMap = {
+            Common = "1",
+            Uncommon = "2",
+            Rare = "3",
+            Epic = "4",
+            Legendary = "5",
+            Mythic = "6",
+        }
+        
+        local converted = {}
+        for _, rarityName in pairs(selected) do
+            if rarityMap[rarityName] then
+                table.insert(converted, rarityMap[rarityName])
+            end
+        end
+        selectrarityPets = converted
+    end
+})
+
+sections.SellPets:AddToggle("SellPets", {
+    Title = "Sell Pets",
+    Default = false,
+    Description = "Automatically sell pets of selected rarities",
+    Callback = function(value)
+        sellPetsRunning = value
+        if value then
+            task.spawn(function()
+                while sellPetsRunning do
+                    local player = game:GetService("Players").LocalPlayer
+                    local petsFolder = player:WaitForChild("PlayerGui"):FindFirstChild("Profile"):FindFirstChild("Pets")
+
+                    if petsFolder then
+                        local petsToSell = {}
+
+                        for _, pet in pairs(petsFolder:GetChildren()) do
+                            local rarity = pet:FindFirstChild("Rarity")
+                            if rarity and table.find(selectrarityPets, tostring(rarity.Value)) then
+                                table.insert(petsToSell, pet)
+                            end
+                        end
+
+                        if #petsToSell > 0 then
+                            local args = {petsToSell, {}}
+                            game:GetService("ReplicatedStorage")
+                                :WaitForChild("Systems")
+                                :WaitForChild("ItemSelling")
+                                :WaitForChild("SellItem")
+                                :FireServer(unpack(args))
+                        end
+                    end
+                    task.wait(0.1)
+                end
+            end)
+        end
+    end,
+})
+
+-- Dungeon Controls Section
+sections.DungeonControls:AddDropdown("DungeonSelect", {
+    Title = "Select Dungeon",
+    Description = "Choose which dungeon to enter",
+    Options = {"AstralDungeon", "CastleDungeon", "CoveDungeon", "DesertDungeon", "ForestDungeon", "JungleDungeon", "MountainDungeon", "CaveDungeon", "MushroomDungeon"},
+    Default = "AstralDungeon",
+    PlaceHolder = "Select dungeon",
+    Multiple = false,
+    Callback = function(selected)
+        selected_dungeon = selected[1] or "AstralDungeon"
+    end
+})
+
+sections.DungeonControls:AddDropdown("DifficultySelect", {
+    Title = "Choose Difficulty",
+    Description = "Select dungeon difficulty",
+    Options = {"Normal", "Medium", "Hard", "Insane"},
+    Default = "Normal",
+    PlaceHolder = "Select difficulty",
+    Multiple = false,
+    Callback = function(selected)
+        local difficultyMap = {
+            Normal = 1,
+            Medium = 2,
+            Hard = 3,
+            Insane = 4
+        }
+        selected_difficulties = difficultyMap[selected[1]] or 1
+    end
+})
+
+sections.DungeonControls:AddDropdown("PlayerCount", {
+    Title = "Players",
+    Description = "Number of players for dungeon",
+    Options = {"1", "2", "3", "4", "5"},
+    Default = "1",
+    PlaceHolder = "Select player count",
+    Multiple = false,
+    Callback = function(selected)
+        selected_player = tonumber(selected[1]) or 1
+    end
+})
+
+sections.DungeonControls:AddButton({
+    Title = "Enter Dungeon",
+    Callback = function()
+        local args = {
+            selected_dungeon,
+            selected_difficulties,
+            selected_player,
+            false
+        }
+        game:GetService("ReplicatedStorage"):WaitForChild("Systems"):WaitForChild("Parties"):WaitForChild("SetSettings"):FireServer(unpack(args))
+    end,
+})
+
+sections.DungeonControls:AddButton({
+    Title = "Return To Lobby",
+    Callback = function()
+        game:GetService("ReplicatedStorage").Systems.Dungeons.ExitDungeon:FireServer()
+    end,
+})
+
+-- Anti-AFK Section
+sections.AntiAfkSection:AddToggle("AntiAfk", {
+    Title = "Anti-AFK",
+    Default = false,
+    Description = "Prevent being kicked when AFK",
+    Callback = function(value)
+        antiAfkRunning = value
+        if value then
+            task.spawn(function()
+                while antiAfkRunning do
+                    local VirtualUser = game:GetService("VirtualUser")
+                    VirtualUser:CaptureController()
+                    VirtualUser:ClickButton2(Vector2.new())
+                    task.wait(10)
+                end
+            end)
+        end
+    end,
+})
+
+-- Config System
+FlagsManager:SetLibrary(lib)
+FlagsManager:SetIgnoreIndexes({})
+FlagsManager:SetFolder("Avantrix/DH")
+FlagsManager:InitSaveSystem(tabs.Settings)
+
+-- Notifications
+lib:Dialog({
+    Title = "Avantrix",
+    Content = "The script has been loaded successfully!",
+    Buttons = {
+        {
+            Title = "OK",
+            Variant = "Primary",
+            Callback = function() end,
+        }
+    }
+})
+
+task.wait(3)
+
+lib:Dialog({
+    Title = "Avantrix",
+    Content = "Join the discord for more updates\ndiscord.gg/cF8YeDPt2G",
+    Buttons = {
+        {
+            Title = "Copy Discord",
+            Variant = "Primary",
+            Callback = function()
+                setclipboard("https://discord.gg/cF8YeDPt2G")
+            end,
+        },
+        {
+            Title = "OK",
+            Variant = "Ghost",
+            Callback = function() end,
+        }
+    }
+})
