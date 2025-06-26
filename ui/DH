@@ -35,7 +35,7 @@ end
 
 -- Initialize main GUI
 local main = lib:Load({
-    Title = 'Dungeon Hunter '..formatVersion(LRM_ScriptVersion)..' | ' .. gradient("Avantrix").. " | ",
+    Title = 'Dungeon Heroes '..formatVersion(LRM_ScriptVersion)..' | ' .. gradient("Avantrix").. " | ",
     ToggleButton = "rbxassetid://100227182680708",
 })
 
