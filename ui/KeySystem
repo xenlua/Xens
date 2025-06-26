@@ -1,0 +1,725 @@
+-- Enhanced Key System for Roblox
+-- Improved error handling, modular structure, and better user experience
+
+local HttpService = game:GetService("HttpService")
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local LocalPlayer = Players.LocalPlayer
+
+-- Configuration
+local CONFIG = {
+    API_URL = "https://tlfsfctfofjgppfrdcpm.supabase.co/functions/v1/validate-key",
+    API_KEY = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRsZnNmY3Rmb2ZqZ3BwZnJkY3BtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzczMTkxNjgsImV4cCI6MjA1Mjg5NTE2OH0.yv_fnGPcP2TWB19V7TtY1IfLlyBMRofx_8kDk1fb6GY",
+    KEY_WEBSITE = "https://xenonhub.xyz/",
+    CHECK_INTERVAL = 30, -- seconds
+    GUI_NAME = "XenonKeySystem"
+}
+
+-- State Management
+local KeySystem = {
+    isValid = false,
+    isInitialized = false,
+    timerCoroutine = nil,
+    gui = nil,
+    elements = {},
+    callbacks = {
+        onKeyValid = nil,
+        onKeyInvalid = nil,
+        onKeyExpired = nil,
+        onKeyDisabled = nil
+    }
+}
+
+-- Utility Functions
+local function safeHttpRequest(url, method, headers, body)
+    local http_request = syn and syn.request or request
+    if not http_request then
+        return false, "HTTP request function not available"
+    end
+    
+    local success, response = pcall(function()
+        return http_request({
+            Url = url,
+            Method = method or "GET",
+            Headers = headers or {},
+            Body = body
+        })
+    end)
+    
+    if not success then
+        return false, "Network request failed: " .. tostring(response)
+    end
+    
+    return true, response
+end
+
+local function safeJsonDecode(jsonString)
+    local success, result = pcall(function()
+        return HttpService:JSONDecode(jsonString)
+    end)
+    
+    if not success then
+        return false, "Invalid JSON response"
+    end
+    
+    return true, result
+end
+
+local function formatTime(seconds)
+    local hours = math.floor(seconds / 3600)
+    local minutes = math.floor((seconds % 3600) / 60)
+    local secs = seconds % 60
+    return string.format("%02d:%02d:%02d", hours, minutes, secs)
+end
+
+-- GUI Creation Functions
+local function createGradient(parent, colors, rotation)
+    local gradient = Instance.new("UIGradient")
+    gradient.Color = ColorSequence.new(colors)
+    gradient.Rotation = rotation or 45
+    gradient.Parent = parent
+    return gradient
+end
+
+local function createCorner(parent, radius)
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, radius or 8)
+    corner.Parent = parent
+    return corner
+end
+
+local function createGlow(parent, color, transparency)
+    local glow = Instance.new("ImageLabel")
+    glow.Parent = parent
+    glow.BackgroundTransparency = 1
+    glow.Position = UDim2.new(0, -10, 0, -10)
+    glow.Size = UDim2.new(1, 20, 1, 20)
+    glow.Image = "rbxassetid://5028857084"
+    glow.ImageColor3 = color or Color3.fromRGB(75, 150, 255)
+    glow.ImageTransparency = transparency or 0.8
+    return glow
+end
+
+-- GUI Management
+function KeySystem:destroyExistingGui()
+    local existingGui = game.CoreGui:FindFirstChild(CONFIG.GUI_NAME)
+    if existingGui then
+        existingGui:Destroy()
+    end
+end
+
+function KeySystem:createGui()
+    self:destroyExistingGui()
+    
+    -- Main ScreenGui
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = CONFIG.GUI_NAME
+    screenGui.Parent = game.CoreGui
+    screenGui.IgnoreGuiInset = true
+    
+    -- Background with blur effect
+    local blurEffect = Instance.new("BlurEffect")
+    blurEffect.Parent = game.Lighting
+    blurEffect.Size = 20
+    
+    local backgroundFrame = Instance.new("Frame")
+    backgroundFrame.Parent = screenGui
+    backgroundFrame.Size = UDim2.new(1, 0, 1, 0)
+    backgroundFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+    backgroundFrame.BackgroundTransparency = 0.3
+    
+    createGradient(backgroundFrame, {
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(30, 30, 35)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(20, 20, 25)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(15, 15, 20))
+    })
+    
+    -- Time Container
+    local timeContainer = Instance.new("Frame")
+    timeContainer.Parent = backgroundFrame
+    timeContainer.Size = UDim2.new(0.25, 0, 0.06, 0)
+    timeContainer.Position = UDim2.new(0.375, 0, 0.02, 0)
+    timeContainer.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+    timeContainer.BackgroundTransparency = 0.2
+    
+    createGradient(timeContainer, {
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(40, 40, 45)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 30, 35))
+    })
+    createCorner(timeContainer)
+    createGlow(timeContainer)
+    
+    local timeLabel = Instance.new("TextLabel")
+    timeLabel.Parent = timeContainer
+    timeLabel.Size = UDim2.new(1, 0, 1, 0)
+    timeLabel.BackgroundTransparency = 1
+    timeLabel.Text = "Time Remaining: --:--:--"
+    timeLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    timeLabel.TextSize = 16
+    timeLabel.Font = Enum.Font.GothamBold
+    
+    -- Main Frame
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Parent = backgroundFrame
+    mainFrame.Size = UDim2.new(0.3, 0, 0.5, 0)
+    mainFrame.Position = UDim2.new(0.35, 0, 0.25, 0)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+    mainFrame.BackgroundTransparency = 0.1
+    
+    createGradient(mainFrame, {
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(40, 40, 45)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 30, 35))
+    })
+    createCorner(mainFrame)
+    
+    -- Profile Section
+    local profileFrame = Instance.new("Frame")
+    profileFrame.Parent = mainFrame
+    profileFrame.Size = UDim2.new(1, 0, 0.3, 0)
+    profileFrame.BackgroundTransparency = 1
+    
+    local profileImage = Instance.new("ImageLabel")
+    profileImage.Parent = profileFrame
+    profileImage.Size = UDim2.new(0.25, 0, 0.8, 0)
+    profileImage.Position = UDim2.new(0.375, 0, 0.1, 0)
+    profileImage.BackgroundTransparency = 1
+    profileImage.Image = Players:GetUserThumbnailAsync(LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
+    createCorner(profileImage)
+    
+    local usernameLabel = Instance.new("TextLabel")
+    usernameLabel.Parent = profileFrame
+    usernameLabel.Size = UDim2.new(0.8, 0, 0.2, 0)
+    usernameLabel.Position = UDim2.new(0.1, 0, 0.9, 0)
+    usernameLabel.BackgroundTransparency = 1
+    usernameLabel.Text = LocalPlayer.Name
+    usernameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    usernameLabel.TextSize = 14
+    usernameLabel.Font = Enum.Font.GothamBold
+    
+    -- Title
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Parent = mainFrame
+    titleLabel.Text = "XENON HUB"
+    titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    titleLabel.TextSize = 24
+    titleLabel.Font = Enum.Font.GothamBold
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Size = UDim2.new(0.8, 0, 0.1, 0)
+    titleLabel.Position = UDim2.new(0.1, 0, 0.35, 0)
+    
+    -- Key Input
+    local textBox = Instance.new("TextBox")
+    textBox.Parent = mainFrame
+    textBox.PlaceholderText = "Enter your key"
+    textBox.PlaceholderColor3 = Color3.fromRGB(200, 200, 200)
+    textBox.Text = ""
+    textBox.Size = UDim2.new(0.8, 0, 0.1, 0)
+    textBox.Position = UDim2.new(0.1, 0, 0.5, 0)
+    textBox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+    textBox.BackgroundTransparency = 0.5
+    textBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+    textBox.Font = Enum.Font.Gotham
+    textBox.TextSize = 14
+    createCorner(textBox)
+    
+    -- Buttons
+    local verifyButton = Instance.new("TextButton")
+    verifyButton.Parent = mainFrame
+    verifyButton.Text = "Verify Key"
+    verifyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    verifyButton.Size = UDim2.new(0.38, 0, 0.1, 0)
+    verifyButton.Position = UDim2.new(0.1, 0, 0.65, 0)
+    verifyButton.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+    verifyButton.BackgroundTransparency = 0.3
+    verifyButton.Font = Enum.Font.GothamBold
+    verifyButton.TextSize = 14
+    createCorner(verifyButton)
+    
+    local getKeyButton = Instance.new("TextButton")
+    getKeyButton.Parent = mainFrame
+    getKeyButton.Text = "Get Key"
+    getKeyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    getKeyButton.Size = UDim2.new(0.38, 0, 0.1, 0)
+    getKeyButton.Position = UDim2.new(0.52, 0, 0.65, 0)
+    getKeyButton.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+    getKeyButton.BackgroundTransparency = 0.3
+    getKeyButton.Font = Enum.Font.GothamBold
+    getKeyButton.TextSize = 14
+    createCorner(getKeyButton)
+    
+    -- Status Label
+    local statusLabel = Instance.new("TextLabel")
+    statusLabel.Parent = mainFrame
+    statusLabel.Text = ""
+    statusLabel.Size = UDim2.new(0.8, 0, 0.1, 0)
+    statusLabel.Position = UDim2.new(0.1, 0, 0.8, 0)
+    statusLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+    statusLabel.BackgroundTransparency = 1
+    statusLabel.Font = Enum.Font.Gotham
+    statusLabel.TextSize = 14
+    
+    -- Close Button
+    local closeButton = Instance.new("TextButton")
+    closeButton.Parent = mainFrame
+    closeButton.Text = "×"
+    closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    closeButton.Size = UDim2.new(0.1, 0, 0.1, 0)
+    closeButton.Position = UDim2.new(0.9, 0, 0, 0)
+    closeButton.BackgroundTransparency = 1
+    closeButton.Font = Enum.Font.GothamBold
+    closeButton.TextSize = 20
+    
+    -- Store references
+    self.gui = screenGui
+    self.elements = {
+        backgroundFrame = backgroundFrame,
+        mainFrame = mainFrame,
+        timeContainer = timeContainer,
+        timeLabel = timeLabel,
+        textBox = textBox,
+        verifyButton = verifyButton,
+        getKeyButton = getKeyButton,
+        statusLabel = statusLabel,
+        closeButton = closeButton,
+        blurEffect = blurEffect
+    }
+    
+    self:setupEventHandlers()
+    self:setupAnimations()
+end
+
+-- Event Handlers
+function KeySystem:setupEventHandlers()
+    local elements = self.elements
+    
+    -- Verify button
+    elements.verifyButton.MouseButton1Click:Connect(function()
+        local key = elements.textBox.Text
+        if key == "" then
+            self:showStatus("Please enter a key", true)
+            return
+        end
+        self:validateKey(key)
+    end)
+    
+    -- Get key button
+    elements.getKeyButton.MouseButton1Click:Connect(function()
+        setclipboard(CONFIG.KEY_WEBSITE)
+        self:showStatus("Link copied to clipboard", false)
+    end)
+    
+    -- Close button
+    elements.closeButton.MouseButton1Click:Connect(function()
+        self:closeGui()
+    end)
+    
+    -- Hover effects
+    self:addHoverEffect(elements.verifyButton)
+    self:addHoverEffect(elements.getKeyButton)
+    
+    -- Make draggable
+    self:makeDraggable(elements.mainFrame)
+end
+
+function KeySystem:addHoverEffect(button)
+    button.MouseEnter:Connect(function()
+        TweenService:Create(button, TweenInfo.new(0.3), {
+            BackgroundTransparency = 0.1
+        }):Play()
+    end)
+    
+    button.MouseLeave:Connect(function()
+        TweenService:Create(button, TweenInfo.new(0.3), {
+            BackgroundTransparency = 0.3
+        }):Play()
+    end)
+end
+
+function KeySystem:makeDraggable(frame)
+    local dragging = false
+    local dragInput = nil
+    local dragStart = nil
+    local startPos = nil
+    
+    local function update(input)
+        local delta = input.Position - dragStart
+        frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+    
+    frame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Position
+            
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+    
+    frame.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+    
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input == dragInput then
+            update(input)
+        end
+    end)
+end
+
+-- Animation System
+function KeySystem:setupAnimations()
+    local elements = self.elements
+    
+    -- Set initial transparency
+    elements.mainFrame.BackgroundTransparency = 1
+    elements.timeContainer.BackgroundTransparency = 1
+    elements.textBox.BackgroundTransparency = 1
+    elements.verifyButton.BackgroundTransparency = 1
+    elements.getKeyButton.BackgroundTransparency = 1
+    
+    -- Animate in sequence
+    task.spawn(function()
+        wait(0.1)
+        TweenService:Create(elements.mainFrame, TweenInfo.new(0.5), {
+            BackgroundTransparency = 0.1
+        }):Play()
+        
+        wait(0.2)
+        TweenService:Create(elements.timeContainer, TweenInfo.new(0.5), {
+            BackgroundTransparency = 0.2
+        }):Play()
+        
+        wait(0.3)
+        TweenService:Create(elements.textBox, TweenInfo.new(0.5), {
+            BackgroundTransparency = 0.5
+        }):Play()
+        
+        wait(0.4)
+        TweenService:Create(elements.verifyButton, TweenInfo.new(0.5), {
+            BackgroundTransparency = 0.3
+        }):Play()
+        
+        wait(0.5)
+        TweenService:Create(elements.getKeyButton, TweenInfo.new(0.5), {
+            BackgroundTransparency = 0.3
+        }):Play()
+    end)
+end
+
+-- Status Management
+function KeySystem:showStatus(message, isError)
+    local statusLabel = self.elements.statusLabel
+    statusLabel.Text = message
+    statusLabel.TextColor3 = isError and Color3.fromRGB(255, 100, 100) or Color3.fromRGB(100, 255, 100)
+    
+    statusLabel.TextTransparency = 1
+    TweenService:Create(statusLabel, TweenInfo.new(0.3), {
+        TextTransparency = 0
+    }):Play()
+end
+
+-- Timer Management
+function KeySystem:stopTimer()
+    if self.timerCoroutine then
+        coroutine.close(self.timerCoroutine)
+        self.timerCoroutine = nil
+    end
+end
+
+function KeySystem:startTimer(duration, currentKey)
+    self:stopTimer()
+    
+    self.timerCoroutine = coroutine.create(function()
+        local timeLeft = duration
+        
+        while timeLeft > 0 do
+            -- Periodic key validation
+            if timeLeft % CONFIG.CHECK_INTERVAL == 0 then
+                local isValid, response = self:checkKeyStatus(currentKey)
+                if not isValid then
+                    if response == "disabled" then
+                        self:handleKeyDisabled()
+                    else
+                        self:handleKeyInvalid()
+                    end
+                    return
+                end
+            end
+            
+            self.elements.timeLabel.Text = "Time Remaining: " .. formatTime(timeLeft)
+            task.wait(1)
+            timeLeft = timeLeft - 1
+        end
+        
+        -- Timer expired
+        self:handleKeyExpired()
+    end)
+    
+    coroutine.resume(self.timerCoroutine)
+end
+
+-- Key Validation
+function KeySystem:validateKey(key)
+    self:showStatus("Validating key...", false)
+    
+    local success, response = safeHttpRequest(
+        CONFIG.API_URL,
+        "POST",
+        {
+            ["Content-Type"] = "application/json",
+            ["Authorization"] = CONFIG.API_KEY
+        },
+        HttpService:JSONEncode({ key = key })
+    )
+    
+    if not success then
+        self:showStatus("Connection failed: " .. response, true)
+        return
+    end
+    
+    if response.StatusCode ~= 200 then
+        self:showStatus("Server error: " .. tostring(response.StatusCode), true)
+        return
+    end
+    
+    local jsonSuccess, data = safeJsonDecode(response.Body)
+    if not jsonSuccess then
+        self:showStatus("Invalid server response", true)
+        return
+    end
+    
+    if data.valid then
+        self:handleKeyValid(data, key)
+    else
+        if data.message == "Key is disabled" then
+            self:handleKeyDisabled()
+        else
+            self:handleKeyInvalid()
+        end
+    end
+end
+
+function KeySystem:checkKeyStatus(key)
+    local success, response = safeHttpRequest(
+        CONFIG.API_URL,
+        "POST",
+        {
+            ["Content-Type"] = "application/json",
+            ["Authorization"] = CONFIG.API_KEY
+        },
+        HttpService:JSONEncode({ key = key })
+    )
+    
+    if not success then
+        return true, nil -- Assume valid on network error to avoid false kicks
+    end
+    
+    if response.StatusCode ~= 200 then
+        return true, nil
+    end
+    
+    local jsonSuccess, data = safeJsonDecode(response.Body)
+    if not jsonSuccess then
+        return true, nil
+    end
+    
+    if not data.valid then
+        return false, data.message == "Key is disabled" and "disabled" or "invalid"
+    end
+    
+    return true, nil
+end
+
+-- Event Handlers
+function KeySystem:handleKeyValid(data, key)
+    self.isValid = true
+    self:showStatus("Key Verified Successfully!", false)
+    
+    -- Move time container to main screen
+    self.elements.timeContainer.Parent = self.gui
+    self.elements.timeContainer.Position = UDim2.new(0.375, 0, 0.02, 0)
+    
+    if data.expiresIn then
+        self:startTimer(data.expiresIn, key)
+    else
+        self.elements.timeLabel.Text = "Error: No expiration data"
+        self.elements.timeLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+    end
+    
+    -- Animate out main frame
+    task.wait(1)
+    self:animateOut()
+    
+    -- Call success callback
+    if self.callbacks.onKeyValid then
+        self.callbacks.onKeyValid(data)
+    end
+end
+
+function KeySystem:handleKeyInvalid()
+    self.elements.timeLabel.Text = "Invalid Key!"
+    self.elements.timeLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+    self:showStatus("INVALID KEY", true)
+    
+    if self.callbacks.onKeyInvalid then
+        self.callbacks.onKeyInvalid()
+    else
+        self:kickPlayer("Your key is invalid.\nPlease get a new key at " .. CONFIG.KEY_WEBSITE, false)
+    end
+end
+
+function KeySystem:handleKeyExpired()
+    self.elements.timeLabel.Text = "Time Expired!"
+    self.elements.timeLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+    
+    if self.callbacks.onKeyExpired then
+        self.callbacks.onKeyExpired()
+    else
+        self:kickPlayer("Your key has expired.\nPlease get a new key at " .. CONFIG.KEY_WEBSITE, false)
+    end
+end
+
+function KeySystem:handleKeyDisabled()
+    self.elements.timeLabel.Text = "Key Disabled!"
+    self.elements.timeLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+    self:showStatus("KEY DISABLED", true)
+    
+    if self.callbacks.onKeyDisabled then
+        self.callbacks.onKeyDisabled()
+    else
+        self:kickPlayer("Your key has been disabled by an administrator.\nPlease contact support for assistance.", true)
+    end
+end
+
+-- GUI Management
+function KeySystem:animateOut()
+    local fadeOut = TweenService:Create(self.elements.mainFrame, TweenInfo.new(0.5), {
+        BackgroundTransparency = 1
+    })
+    local backgroundFade = TweenService:Create(self.elements.backgroundFrame, TweenInfo.new(0.5), {
+        BackgroundTransparency = 1
+    })
+    local blurFade = TweenService:Create(self.elements.blurEffect, TweenInfo.new(0.5), {
+        Size = 0
+    })
+    
+    fadeOut:Play()
+    backgroundFade:Play()
+    blurFade:Play()
+    
+    fadeOut.Completed:Connect(function()
+        self.elements.mainFrame:Destroy()
+        self.elements.backgroundFrame:Destroy()
+        self.elements.blurEffect:Destroy()
+    end)
+end
+
+function KeySystem:closeGui()
+    self:stopTimer()
+    
+    local fadeOut = TweenService:Create(self.elements.mainFrame, TweenInfo.new(0.5), {
+        BackgroundTransparency = 1
+    })
+    local timeContainerFade = TweenService:Create(self.elements.timeContainer, TweenInfo.new(0.5), {
+        BackgroundTransparency = 1
+    })
+    
+    fadeOut:Play()
+    timeContainerFade:Play()
+    
+    fadeOut.Completed:Connect(function()
+        if self.gui then
+            self.gui:Destroy()
+        end
+        if self.elements.blurEffect then
+            self.elements.blurEffect:Destroy()
+        end
+    end)
+end
+
+function KeySystem:kickPlayer(reason, isDisabled)
+    local notification = Instance.new("ScreenGui")
+    notification.Name = "KickNotification"
+    notification.Parent = game.CoreGui
+    
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0.3, 0, 0.15, 0)
+    frame.Position = UDim2.new(0.35, 0, 0.4, 0)
+    frame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+    frame.BackgroundTransparency = 0.1
+    frame.Parent = notification
+    
+    createGradient(frame, {
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(40, 40, 45)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 30, 35))
+    })
+    createCorner(frame)
+    
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(0.9, 0, 0.3, 0)
+    title.Position = UDim2.new(0.05, 0, 0.1, 0)
+    title.BackgroundTransparency = 1
+    title.TextColor3 = isDisabled and Color3.fromRGB(255, 100, 100) or Color3.fromRGB(255, 150, 0)
+    title.TextSize = 20
+    title.Font = Enum.Font.GothamBold
+    title.Text = isDisabled and "KEY DISABLED BY ADMIN" or "KEY EXPIRED"
+    title.Parent = frame
+    
+    local message = Instance.new("TextLabel")
+    message.Size = UDim2.new(0.9, 0, 0.5, 0)
+    message.Position = UDim2.new(0.05, 0, 0.4, 0)
+    message.BackgroundTransparency = 1
+    message.TextColor3 = Color3.fromRGB(255, 255, 255)
+    message.TextSize = 16
+    message.Font = Enum.Font.Gotham
+    message.Text = reason
+    message.TextWrapped = true
+    message.Parent = frame
+    
+    createGlow(frame, isDisabled and Color3.fromRGB(255, 100, 100) or Color3.fromRGB(255, 150, 0))
+    
+    task.wait(3)
+    LocalPlayer:Kick(reason)
+end
+
+-- Public API
+function KeySystem:init(callbacks)
+    if self.isInitialized then
+        return
+    end
+    
+    self.callbacks = callbacks or {}
+    self.isInitialized = true
+    self:createGui()
+end
+
+function KeySystem:waitForValidation()
+    repeat task.wait() until self.isValid
+end
+
+function KeySystem:isKeyValid()
+    return self.isValid
+end
+
+function KeySystem:destroy()
+    self:stopTimer()
+    if self.gui then
+        self.gui:Destroy()
+    end
+    if self.elements.blurEffect then
+        self.elements.blurEffect:Destroy()
+    end
+    self.isValid = false
+    self.isInitialized = false
+end
+
+-- Return the KeySystem module
+return KeySystem
