@@ -1,0 +1,937 @@
+local HttpService = game:GetService("HttpService")
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local LocalPlayer = Players.LocalPlayer
+
+local existingGui = game.CoreGui:FindFirstChild("LoginGui")
+if existingGui then
+    existingGui:Destroy()
+end
+
+-- Configuration
+local CONFIG = {
+    BASE_URL = "https://superb-mooncake-9eb53d.netlify.app",
+    API_BASE = "https://tlfsfctfofjgppfrdcpm.supabase.co/functions/v1",
+    ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRsZnNmY3Rmb2ZqZ3BwZnJkY3BtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzczMTkxNjgsImV4cCI6MjA1Mjg5NTE2OH0.yv_fnGPcP2TWB19V7TtY1IfLlyBMRofx_8kDk1fb6GY",
+    USE_V2_API = true
+}
+
+-- Enhanced Executor Detection Function
+local function detectExecutor()
+    local executor = "Unknown"
+    local version = ""
+
+    if identifyexecutor then
+        local name, ver = identifyexecutor()
+        executor = name or "Unknown"
+        version = ver or ""
+    elseif getexecutorname then
+        executor = getexecutorname() or "Unknown"
+    elseif KRNL_LOADED then
+        executor = "Krnl"
+    elseif syn then
+        executor = "Synapse X"
+        if syn.get_version then
+            version = syn.get_version()
+        end
+    elseif is_sirhurt_closure then
+        executor = "SirHurt"
+    elseif secure_load then
+        executor = "Sentinel"
+    elseif pebc_execute then
+        executor = "ProtoSmasher"
+    elseif shadow_env then
+        executor = "Shadow"
+    elseif Fluxus then
+        executor = "Fluxus"
+    elseif isexecutorclosure then
+        executor = "ScriptWare"
+    elseif get_hidden_gui then
+        executor = "Dansploit"
+    elseif wrapfunction and not is_synapse_function then
+        executor = "Comet or Electron"
+    elseif getgenv then
+        executor = "Unknown (Has getgenv)"
+    end
+
+    return executor, version
+end
+
+-- Generate HWID using the EXACT SAME algorithm as the web KeyVerification
+local function generateConsistentHWID()
+    local stableData = {
+        '1818',
+        tostring(LocalPlayer.UserId),
+        game.JobId:sub(1, 8),
+        tostring(math.floor(workspace.DistributedGameTime)):sub(1, 5),
+        'WebUser',
+        tostring(game.GameId):sub(1, 8)
+    }
+    
+    local combinedData = table.concat(stableData, "|")
+    local hash = 0
+    
+    for i = 1, #combinedData do
+        local char = string.byte(combinedData, i)
+        hash = ((hash * 31) + char) % 2147483647
+    end
+    
+    local hwidBase = string.format("%X", math.abs(hash))
+    
+    if #hwidBase > 12 then
+        hwidBase = hwidBase:sub(1, 12)
+    elseif #hwidBase < 12 then
+        hwidBase = hwidBase .. string.rep("0", 12 - #hwidBase)
+    end
+    
+    return "KEY" .. hwidBase
+end
+
+-- Generate EXECUTOR HWID that can be reset
+local function generateExecutorHWID()
+    local executor, version = detectExecutor()
+    
+    local executorData = {
+        executor,
+        version,
+        LocalPlayer.UserId,
+        LocalPlayer.Name,
+        game.PlaceId,
+        tostring(tick()):sub(1, 8)
+    }
+    
+    local combinedData = table.concat(executorData, "|")
+    local hash = 0
+    
+    for i = 1, #combinedData do
+        local char = string.byte(combinedData, i)
+        hash = ((hash * 37) + char) % 2147483647
+    end
+    
+    local hwidBase = string.format("%X", math.abs(hash))
+    
+    if #hwidBase > 12 then
+        hwidBase = hwidBase:sub(1, 12)
+    elseif #hwidBase < 12 then
+        hwidBase = hwidBase .. string.rep("0", 12 - #hwidBase)
+    end
+    
+    return "EXE" .. hwidBase
+end
+
+-- Store CONSISTENT HWIDs
+local CONSISTENT_KEY_HWID = generateConsistentHWID()
+local EXECUTOR_HWID = generateExecutorHWID()
+local EXECUTOR_NAME, EXECUTOR_VERSION = detectExecutor()
+
+-- Create ScreenGui
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Parent = game.CoreGui
+ScreenGui.Name = "LoginGui"
+ScreenGui.IgnoreGuiInset = true
+
+-- Background Frame dengan efek blur
+local BackgroundFrame = Instance.new("Frame")
+BackgroundFrame.Parent = ScreenGui
+BackgroundFrame.Size = UDim2.new(1, 0, 1, 0)
+BackgroundFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+BackgroundFrame.BackgroundTransparency = 0.3
+
+-- Tambahkan gradient untuk background
+local BackgroundGradient = Instance.new("UIGradient")
+BackgroundGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(30, 30, 35)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(20, 20, 25)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(15, 15, 20))
+})
+BackgroundGradient.Rotation = 45
+BackgroundGradient.Parent = BackgroundFrame
+
+-- Tambahkan efek blur
+local BlurEffect = Instance.new("BlurEffect")
+BlurEffect.Parent = game.Lighting
+BlurEffect.Size = 20
+
+-- Simplified Time Container - Only Time Display
+local TimeContainer = Instance.new("Frame")
+TimeContainer.Parent = BackgroundFrame
+TimeContainer.Size = UDim2.new(0.25, 0, 0.08, 0)
+TimeContainer.Position = UDim2.new(0.375, 0, 0.02, 0)
+TimeContainer.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+TimeContainer.BackgroundTransparency = 0.2
+
+-- Add gradient to time container
+local TimeGradient = Instance.new("UIGradient")
+TimeGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(40, 40, 45)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 30, 35))
+})
+TimeGradient.Rotation = 45
+TimeGradient.Parent = TimeContainer
+
+-- Add glow effect
+local TimeGlow = Instance.new("ImageLabel")
+TimeGlow.Parent = TimeContainer
+TimeGlow.BackgroundTransparency = 1
+TimeGlow.Position = UDim2.new(0, -10, 0, -10)
+TimeGlow.Size = UDim2.new(1, 20, 1, 20)
+TimeGlow.Image = "rbxassetid://5028857084"
+TimeGlow.ImageColor3 = Color3.fromRGB(75, 150, 255)
+TimeGlow.ImageTransparency = 0.8
+
+-- Time Label (Centered)
+local TimeLabel = Instance.new("TextLabel")
+TimeLabel.Parent = TimeContainer
+TimeLabel.Size = UDim2.new(1, 0, 1, 0)
+TimeLabel.Position = UDim2.new(0, 0, 0, 0)
+TimeLabel.BackgroundTransparency = 1
+TimeLabel.Text = "Time: --:--:--"
+TimeLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+TimeLabel.TextSize = 16
+TimeLabel.Font = Enum.Font.GothamBold
+TimeLabel.TextXAlignment = Enum.TextXAlignment.Center
+TimeLabel.TextYAlignment = Enum.TextYAlignment.Center
+
+-- Main Frame
+local Frame = Instance.new("Frame")
+Frame.Parent = BackgroundFrame
+Frame.Size = UDim2.new(0.3, 0, 0.5, 0)
+Frame.Position = UDim2.new(0.35, 0, 0.25, 0)
+Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+Frame.BackgroundTransparency = 0.1
+
+-- Add gradient to main frame
+local MainGradient = Instance.new("UIGradient")
+MainGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(40, 40, 45)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 30, 35))
+})
+MainGradient.Rotation = 45
+MainGradient.Parent = Frame
+
+-- Profile Frame
+local ProfileFrame = Instance.new("Frame")
+ProfileFrame.Parent = Frame
+ProfileFrame.Size = UDim2.new(1, 0, 0.3, 0)
+ProfileFrame.Position = UDim2.new(0, 0, 0, 0)
+ProfileFrame.BackgroundTransparency = 1
+
+-- Profile Image with Glow
+local ProfileGlow = Instance.new("ImageLabel")
+ProfileGlow.Parent = ProfileFrame
+ProfileGlow.Size = UDim2.new(0.27, 0, 0.85, 0)
+ProfileGlow.Position = UDim2.new(0.365, 0, 0.075, 0)
+ProfileGlow.BackgroundTransparency = 1
+ProfileGlow.Image = "rbxassetid://5028857084"
+ProfileGlow.ImageColor3 = Color3.fromRGB(75, 150, 255)
+ProfileGlow.ImageTransparency = 0.8
+
+-- Profile Image
+local ProfileImage = Instance.new("ImageLabel")
+ProfileImage.Parent = ProfileFrame
+ProfileImage.Size = UDim2.new(0.25, 0, 0.8, 0)
+ProfileImage.Position = UDim2.new(0.375, 0, 0.1, 0)
+ProfileImage.BackgroundTransparency = 1
+ProfileImage.Image = Players:GetUserThumbnailAsync(LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
+
+-- Username Label with Glow
+local UsernameGlow = Instance.new("TextLabel")
+UsernameGlow.Parent = ProfileFrame
+UsernameGlow.Size = UDim2.new(0.8, 0, 0.2, 0)
+UsernameGlow.Position = UDim2.new(0.1, 0, 0.9, 0)
+UsernameGlow.BackgroundTransparency = 1
+UsernameGlow.Text = LocalPlayer.Name
+UsernameGlow.TextColor3 = Color3.fromRGB(75, 150, 255)
+UsernameGlow.TextSize = 16
+UsernameGlow.Font = Enum.Font.GothamBold
+UsernameGlow.TextTransparency = 0.8
+
+-- Username Label
+local UsernameLabel = Instance.new("TextLabel")
+UsernameLabel.Parent = ProfileFrame
+UsernameLabel.Size = UDim2.new(0.8, 0, 0.2, 0)
+UsernameLabel.Position = UDim2.new(0.1, 0, 0.9, 0)
+UsernameLabel.BackgroundTransparency = 1
+UsernameLabel.Text = LocalPlayer.Name
+UsernameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+UsernameLabel.TextSize = 14
+UsernameLabel.Font = Enum.Font.GothamBold
+
+-- Title Label with Glow
+local TitleGlow = Instance.new("TextLabel")
+TitleGlow.Parent = Frame
+TitleGlow.Text = "AVANTRIX HUB"
+TitleGlow.TextColor3 = Color3.fromRGB(75, 150, 255)
+TitleGlow.TextSize = 26
+TitleGlow.Font = Enum.Font.GothamBold
+TitleGlow.BackgroundTransparency = 1
+TitleGlow.Size = UDim2.new(0.8, 0, 0.1, 0)
+TitleGlow.Position = UDim2.new(0.1, 0, 0.35, 0)
+TitleGlow.TextTransparency = 0.8
+
+-- Title Label
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Parent = Frame
+TitleLabel.Text = "AVANTRIX HUB"
+TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleLabel.TextSize = 24
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Size = UDim2.new(0.8, 0, 0.1, 0)
+TitleLabel.Position = UDim2.new(0.1, 0, 0.35, 0)
+
+-- Key Input Box
+local TextBox = Instance.new("TextBox")
+TextBox.Parent = Frame
+TextBox.PlaceholderText = "Enter your key"
+TextBox.PlaceholderColor3 = Color3.fromRGB(200, 200, 200)
+TextBox.Text = ""
+TextBox.Size = UDim2.new(0.8, 0, 0.1, 0)
+TextBox.Position = UDim2.new(0.1, 0, 0.5, 0)
+TextBox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+TextBox.BackgroundTransparency = 0.5
+TextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+TextBox.Font = Enum.Font.Gotham
+TextBox.TextSize = 14
+
+-- Add gradient to textbox
+local TextBoxGradient = Instance.new("UIGradient")
+TextBoxGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(50, 50, 55)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(40, 40, 45))
+})
+TextBoxGradient.Rotation = 45
+TextBoxGradient.Parent = TextBox
+
+-- Verify Button
+local VerifyButton = Instance.new("TextButton")
+VerifyButton.Parent = Frame
+VerifyButton.Text = "Verify Key"
+VerifyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+VerifyButton.Size = UDim2.new(0.38, 0, 0.1, 0)
+VerifyButton.Position = UDim2.new(0.1, 0, 0.65, 0)
+VerifyButton.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+VerifyButton.BackgroundTransparency = 0.3
+VerifyButton.Font = Enum.Font.GothamBold
+VerifyButton.TextSize = 14
+
+-- Add gradient to verify button
+local VerifyGradient = Instance.new("UIGradient")
+VerifyGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(75, 150, 255)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(50, 100, 255))
+})
+VerifyGradient.Rotation = 45
+VerifyGradient.Parent = VerifyButton
+
+-- Get Key Button
+local GetKeyButton = Instance.new("TextButton")
+GetKeyButton.Parent = Frame
+GetKeyButton.Text = "Get Key"
+GetKeyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+GetKeyButton.Size = UDim2.new(0.38, 0, 0.1, 0)
+GetKeyButton.Position = UDim2.new(0.52, 0, 0.65, 0)
+GetKeyButton.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+GetKeyButton.BackgroundTransparency = 0.3
+GetKeyButton.Font = Enum.Font.GothamBold
+GetKeyButton.TextSize = 14
+
+-- Add gradient to get key button
+local GetKeyGradient = Instance.new("UIGradient")
+GetKeyGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(75, 150, 255)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(50, 100, 255))
+})
+GetKeyGradient.Rotation = 45
+GetKeyGradient.Parent = GetKeyButton
+
+-- Status Label
+local StatusLabel = Instance.new("TextLabel")
+StatusLabel.Parent = Frame
+StatusLabel.Text = ""
+StatusLabel.Size = UDim2.new(0.8, 0, 0.1, 0)
+StatusLabel.Position = UDim2.new(0.1, 0, 0.8, 0)
+StatusLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Font = Enum.Font.Gotham
+StatusLabel.TextSize = 14
+
+-- Close Button
+local CloseButton = Instance.new("TextButton")
+CloseButton.Parent = Frame
+CloseButton.Text = "×"
+CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseButton.Size = UDim2.new(0.1, 0, 0.1, 0)
+CloseButton.Position = UDim2.new(0.9, 0, 0, 0)
+CloseButton.BackgroundTransparency = 1
+CloseButton.Font = Enum.Font.GothamBold
+CloseButton.TextSize = 20
+
+-- Add rounded corners to all elements
+local function addRoundCorners(element, radius)
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0, radius or 8)
+    UICorner.Parent = element
+end
+
+addRoundCorners(Frame)
+addRoundCorners(TextBox)
+addRoundCorners(VerifyButton)
+addRoundCorners(GetKeyButton)
+addRoundCorners(ProfileImage)
+addRoundCorners(TimeContainer)
+
+-- Function to show status messages
+local function showStatus(message, isError)
+    StatusLabel.Text = message
+    StatusLabel.TextColor3 = isError and Color3.fromRGB(255, 100, 100) or Color3.fromRGB(100, 255, 100)
+
+    -- Animate status label
+    StatusLabel.TextTransparency = 1
+    TweenService:Create(StatusLabel, TweenInfo.new(0.3), {
+        TextTransparency = 0
+    }):Play()
+end
+
+-- Function to update time display
+local function updateTimeDisplay(timeLeft)
+    local hours = math.floor(timeLeft / 3600)
+    local minutes = math.floor((timeLeft % 3600) / 60)
+    local seconds = timeLeft % 60
+
+    TimeLabel.Text = string.format("Time: %02d:%02d:%02d", hours, minutes, seconds)
+end
+
+-- Variable untuk menyimpan coroutine timer
+local timerCoroutine = nil
+
+-- Function untuk menghentikan timer yang sedang berjalan
+local function stopTimer()
+    if timerCoroutine then
+        coroutine.close(timerCoroutine)
+        timerCoroutine = nil
+    end
+end
+
+-- Close button functionality
+CloseButton.MouseButton1Click:Connect(function()
+    stopTimer()
+
+    local fadeOut = TweenService:Create(Frame, TweenInfo.new(0.5), {
+        BackgroundTransparency = 1
+    })
+    fadeOut:Play()
+
+    local timeContainerFade = TweenService:Create(TimeContainer, TweenInfo.new(0.5), {
+        BackgroundTransparency = 1
+    })
+    timeContainerFade:Play()
+
+    fadeOut.Completed:Connect(function()
+        ScreenGui:Destroy()
+        BlurEffect:Destroy()
+    end)
+end)
+
+local http_request = syn and syn.request or request
+local keyValid = false
+
+local function kickPlayer(reason, isDisabled)
+    local notification = Instance.new("ScreenGui")
+    notification.Name = "KickNotification"
+    notification.Parent = game.CoreGui
+
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0.35, 0, 0.2, 0)
+    frame.Position = UDim2.new(0.325, 0, 0.4, 0)
+    frame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+    frame.BackgroundTransparency = 0.1
+    frame.Parent = notification
+
+    local gradient = Instance.new("UIGradient")
+    gradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(40, 40, 45)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 30, 35))
+    })
+    gradient.Rotation = 45
+    gradient.Parent = frame
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = frame
+
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(0.9, 0, 0.25, 0)
+    title.Position = UDim2.new(0.05, 0, 0.1, 0)
+    title.BackgroundTransparency = 1
+    title.TextColor3 = isDisabled and Color3.fromRGB(255, 100, 100) or Color3.fromRGB(255, 150, 0)
+    title.TextSize = 18
+    title.Font = Enum.Font.GothamBold
+    title.Text = isDisabled and "KEY DISABLED BY ADMIN" or "KEY EXPIRED"
+    title.Parent = frame
+
+    local message = Instance.new("TextLabel")
+    message.Size = UDim2.new(0.9, 0, 0.5, 0)
+    message.Position = UDim2.new(0.05, 0, 0.35, 0)
+    message.BackgroundTransparency = 1
+    message.TextColor3 = Color3.fromRGB(255, 255, 255)
+    message.TextSize = 14
+    message.Font = Enum.Font.Gotham
+    message.Text = reason
+    message.TextWrapped = true
+    message.Parent = frame
+
+    local glow = Instance.new("ImageLabel")
+    glow.BackgroundTransparency = 1
+    glow.Position = UDim2.new(0, -15, 0, -15)
+    glow.Size = UDim2.new(1, 30, 1, 30)
+    glow.Image = "rbxassetid://5028857084"
+    glow.ImageColor3 = isDisabled and Color3.fromRGB(255, 100, 100) or Color3.fromRGB(255, 150, 0)
+    glow.ImageTransparency = 0.8
+    glow.Parent = frame
+
+    wait(3)
+    LocalPlayer:Kick(reason)
+end
+
+local function getCurrentTimestamp()
+    return os.time()
+end
+
+local function startTimer(duration)
+    stopTimer()
+
+    local currentKey = TextBox.Text
+
+    timerCoroutine = coroutine.create(function()
+        local timeLeft = duration
+        while timeLeft > 0 do
+            if timeLeft % 30 == 0 then
+                local url = CONFIG.API_BASE .. (CONFIG.USE_V2_API and "/validate-key-v2" or "/validate-key")
+                local requestBody = CONFIG.USE_V2_API and {
+                    key = currentKey,
+                    timestamp = getCurrentTimestamp(),
+                    key_hwid = CONSISTENT_KEY_HWID,
+                    executor_hwid = EXECUTOR_HWID,
+                    executor_name = EXECUTOR_NAME,
+                    executor_version = EXECUTOR_VERSION,
+                    increment_execution = false
+                } or {
+                    key = currentKey,
+                    key_hwid = CONSISTENT_KEY_HWID,
+                    executor_hwid = EXECUTOR_HWID,
+                    executor_name = EXECUTOR_NAME,
+                    increment_execution = false
+                }
+                
+                local success, response = pcall(function()
+                    return http_request({
+                        Url = url,
+                        Method = "POST",
+                        Headers = {
+                            ["Content-Type"] = "application/json"
+                        },
+                        Body = HttpService:JSONEncode(requestBody)
+                    })
+                end)
+
+                if success and response.StatusCode == 200 then
+                    local data = HttpService:JSONDecode(response.Body)
+                    
+                    if CONFIG.USE_V2_API then
+                        if data.code ~= "KEY_VALID" then
+                            if data.code == "KEY_DISABLED" then
+                                TimeLabel.Text = "Key Disabled!"
+                                TimeLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+                                kickPlayer("Your key has been disabled by an administrator.\nPlease contact support for assistance.", true)
+                                return
+                            elseif data.code == "KEY_BANNED" then
+                                TimeLabel.Text = "Key Banned!"
+                                TimeLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+                                kickPlayer("Your key has been banned by an administrator.\nPlease contact support for assistance.", true)
+                                return
+                            elseif data.code == "KEY_EXPIRED" then
+                                TimeLabel.Text = "Key Expired!"
+                                TimeLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+                                kickPlayer("Your key has expired.\nPlease get a new key at " .. CONFIG.BASE_URL, false)
+                                return
+                            elseif data.code == "KEY_HWID_LOCKED" then
+                                TimeLabel.Text = "Key HWID Mismatch!"
+                                TimeLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+                                kickPlayer("This key is permanently bound to another device.\nKey HWID: " .. CONSISTENT_KEY_HWID:sub(1, 8) .. "...", false)
+                                return
+                            elseif data.code == "EXECUTOR_HWID_LOCKED" then
+                                TimeLabel.Text = "Executor HWID Mismatch!"
+                                TimeLabel.TextColor3 = Color3.fromRGB(255, 150, 0)
+                                kickPlayer("This key is bound to a different executor.\nExecutor HWID: " .. EXECUTOR_HWID:sub(1, 8) .. "...\nContact admin for executor HWID reset.", false)
+                                return
+                            else
+                                TimeLabel.Text = "Invalid Key!"
+                                TimeLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+                                kickPlayer("Your key is invalid.\nPlease get a new key at " .. CONFIG.BASE_URL, false)
+                                return
+                            end
+                        end
+                    else
+                        if not data.valid then
+                            if data.message == "Key is disabled by admin" then
+                                TimeLabel.Text = "Key Disabled!"
+                                TimeLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+                                kickPlayer("Your key has been disabled by an administrator.\nPlease contact support for assistance.", true)
+                                return
+                            elseif data.message == "Key is banned by admin" then
+                                TimeLabel.Text = "Key Banned!"
+                                TimeLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+                                kickPlayer("Your key has been banned by an administrator.\nPlease contact support for assistance.", true)
+                                return
+                            elseif data.message:find("HWID") then
+                                if data.message:find("Key HWID") then
+                                    TimeLabel.Text = "Key HWID Mismatch!"
+                                    TimeLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+                                    kickPlayer("This key is permanently bound to another device.\nKey HWID: " .. CONSISTENT_KEY_HWID:sub(1, 8) .. "...", false)
+                                else
+                                    TimeLabel.Text = "Executor HWID Mismatch!"
+                                    TimeLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+                                    kickPlayer("This key is bound to a different executor.\nExecutor HWID: " .. EXECUTOR_HWID:sub(1, 8) .. "...\nContact admin for HWID reset.", false)
+                                end
+                                return
+                            else
+                                TimeLabel.Text = "Invalid Key!"
+                                TimeLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+                                kickPlayer("Your key is invalid.\nPlease get a new key at " .. CONFIG.BASE_URL, false)
+                                return
+                            end
+                        end
+                    end
+                end
+            end
+
+            updateTimeDisplay(timeLeft)
+            wait(1)
+            timeLeft = timeLeft - 1
+        end
+        
+        TimeLabel.Text = "Time Expired!"
+        TimeLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+        kickPlayer("Your key has expired.\nPlease get a new key at " .. CONFIG.BASE_URL, false)
+    end)
+    coroutine.resume(timerCoroutine)
+end
+
+local function validateKey(key)
+    local url = CONFIG.API_BASE .. (CONFIG.USE_V2_API and "/validate-key-v2" or "/validate-key")
+    local requestBody = CONFIG.USE_V2_API and {
+        key = key,
+        timestamp = getCurrentTimestamp(),
+        key_hwid = CONSISTENT_KEY_HWID,
+        executor_hwid = EXECUTOR_HWID,
+        executor_name = EXECUTOR_NAME,
+        executor_version = EXECUTOR_VERSION,
+        increment_execution = true
+    } or {
+        key = key,
+        key_hwid = CONSISTENT_KEY_HWID,
+        executor_hwid = EXECUTOR_HWID,
+        executor_name = EXECUTOR_NAME,
+        increment_execution = true
+    }
+
+    local success, response = pcall(function()
+        return http_request({
+            Url = url,
+            Method = "POST",
+            Headers = {
+                ["Content-Type"] = "application/json"
+            },
+            Body = HttpService:JSONEncode(requestBody)
+        })
+    end)
+
+    if not success then
+        showStatus("Failed to connect to server", true)
+        return
+    end
+
+    if response.StatusCode == 200 then
+        local success, data = pcall(function()
+            return HttpService:JSONDecode(response.Body)
+        end)
+
+        if not success then
+            showStatus("Server response error", true)
+            return
+        end
+
+        if CONFIG.USE_V2_API then
+            if data.code == "KEY_VALID" then
+                keyValid = true
+                showStatus("Key Verified Successfully!", false)
+
+                TimeContainer.Parent = ScreenGui
+                TimeContainer.Position = UDim2.new(0.375, 0, 0.02, 0)
+
+                if data.data and data.data.auth_expire then
+                    local currentTime = getCurrentTimestamp()
+                    local expiresIn = data.data.auth_expire - currentTime
+                    
+                    if expiresIn > 0 then
+                        startTimer(expiresIn)
+                    else
+                        TimeLabel.Text = "Key Expired!"
+                        TimeLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+                        kickPlayer("Your key has expired.\nPlease get a new key at " .. CONFIG.BASE_URL, false)
+                        return
+                    end
+                else
+                    TimeLabel.Text = "Error: No expiration data"
+                    TimeLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+                end
+
+                wait(1)
+
+                local fadeOut = TweenService:Create(Frame, TweenInfo.new(0.5), {
+                    BackgroundTransparency = 1
+                })
+                local backgroundFade = TweenService:Create(BackgroundFrame, TweenInfo.new(0.5), {
+                    BackgroundTransparency = 1
+                })
+                fadeOut:Play()
+                backgroundFade:Play()
+
+                local blurFade = TweenService:Create(BlurEffect, TweenInfo.new(0.5), {
+                    Size = 0
+                })
+                blurFade:Play()
+
+                fadeOut.Completed:Connect(function()
+                    Frame:Destroy()
+                    BlurEffect:Destroy()
+                    BackgroundFrame:Destroy()
+                end)
+                
+                return
+            else
+                if data.code == "KEY_DISABLED" then
+                    TimeLabel.Text = "Key Disabled!"
+                    TimeLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+                    showStatus("KEY DISABLED", true)
+                    kickPlayer("Your key has been disabled by an administrator.\nPlease contact support for assistance.", true)
+                elseif data.code == "KEY_BANNED" then
+                    TimeLabel.Text = "Key Banned!"
+                    TimeLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+                    showStatus("KEY BANNED", true)
+                    kickPlayer("Your key has been banned by an administrator.\nPlease contact support for assistance.", true)
+                elseif data.code == "KEY_EXPIRED" then
+                    TimeLabel.Text = "Key Expired!"
+                    TimeLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+                    showStatus("KEY EXPIRED", true)
+                    kickPlayer("Your key has expired.\nPlease get a new key at " .. CONFIG.BASE_URL, false)
+                elseif data.code == "KEY_HWID_LOCKED" then
+                    TimeLabel.Text = "Key HWID Mismatch!"
+                    TimeLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+                    showStatus("KEY HWID LOCKED", true)
+                    kickPlayer("This key is permanently bound to another device.\nYour Key HWID: " .. CONSISTENT_KEY_HWID:sub(1, 8) .. "...\nThis key cannot be used on this device.", false)
+                elseif data.code == "EXECUTOR_HWID_LOCKED" then
+                    TimeLabel.Text = "Executor HWID Mismatch!"
+                    TimeLabel.TextColor3 = Color3.fromRGB(255, 150, 0)
+                    showStatus("EXECUTOR HWID LOCKED", true)
+                    kickPlayer("This key is bound to a different executor.\nYour Executor HWID: " .. EXECUTOR_HWID:sub(1, 8) .. "...\nExecutor: " .. EXECUTOR_NAME .. "\nContact admin for executor HWID reset.", false)
+                else
+                    TimeLabel.Text = "Invalid Key!"
+                    TimeLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+                    showStatus("INVALID KEY", true)
+                    kickPlayer("Your key is invalid.\nPlease get a new key at " .. CONFIG.BASE_URL, false)
+                end
+            end
+        else
+            if data.valid then
+                keyValid = true
+                showStatus("Key Verified Successfully!", false)
+
+                TimeContainer.Parent = ScreenGui
+                TimeContainer.Position = UDim2.new(0.375, 0, 0.02, 0)
+
+                if data.expiresIn then
+                    startTimer(data.expiresIn)
+                else
+                    TimeLabel.Text = "Error: No expiration data"
+                    TimeLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+                end
+
+                wait(1)
+
+                local fadeOut = TweenService:Create(Frame, TweenInfo.new(0.5), {
+                    BackgroundTransparency = 1
+                })
+                local backgroundFade = TweenService:Create(BackgroundFrame, TweenInfo.new(0.5), {
+                    BackgroundTransparency = 1
+                })
+                fadeOut:Play()
+                backgroundFade:Play()
+
+                local blurFade = TweenService:Create(BlurEffect, TweenInfo.new(0.5), {
+                    Size = 0
+                })
+                blurFade:Play()
+
+                fadeOut.Completed:Connect(function()
+                    Frame:Destroy()
+                    BlurEffect:Destroy()
+                    BackgroundFrame:Destroy()
+                end)
+                
+                return
+            else
+                if data.message == "Key is disabled by admin" then
+                    TimeLabel.Text = "Key Disabled!"
+                    TimeLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+                    showStatus("KEY DISABLED", true)
+                    kickPlayer("Your key has been disabled by an administrator.\nPlease contact support for assistance.", true)
+                elseif data.message == "Key is banned by admin" then
+                    TimeLabel.Text = "Key Banned!"
+                    TimeLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+                    showStatus("KEY BANNED", true)
+                    kickPlayer("Your key has been banned by an administrator.\nPlease contact support for assistance.", true)
+                elseif data.message:find("Key HWID") then
+                    TimeLabel.Text = "Key HWID Mismatch!"
+                    TimeLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+                    showStatus("KEY HWID LOCKED", true)
+                    kickPlayer("This key is permanently bound to another device.\nYour Key HWID: " .. CONSISTENT_KEY_HWID:sub(1, 8) .. "...\nThis key cannot be used on this device.", false)
+                elseif data.message:find("Executor HWID") then
+                    TimeLabel.Text = "Executor HWID Mismatch!"
+                    TimeLabel.TextColor3 = Color3.fromRGB(255, 150, 0)
+                    showStatus("EXECUTOR HWID LOCKED", true)
+                    kickPlayer("This key is bound to a different executor.\nYour Executor HWID: " .. EXECUTOR_HWID:sub(1, 8) .. "...\nContact admin for executor HWID reset.", false)
+                else
+                    TimeLabel.Text = "Invalid Key!"
+                    TimeLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+                    showStatus("INVALID KEY", true)
+                    kickPlayer("Your key is invalid.\nPlease get a new key at " .. CONFIG.BASE_URL, false)
+                end
+            end
+        end
+    else
+        showStatus("Server error: " .. tostring(response.StatusCode), true)
+    end
+end
+
+-- Button functionality
+VerifyButton.MouseButton1Click:Connect(function()
+    local key = TextBox.Text
+
+    if key == "" then
+        showStatus("Please enter a key", true)
+        return
+    end
+    validateKey(key)
+end)
+
+GetKeyButton.MouseButton1Click:Connect(function()
+    local url = CONFIG.BASE_URL
+    setclipboard(url)
+    showStatus("Link copied to clipboard", false)
+end)
+
+-- Button hover effects
+local function addButtonHoverEffect(button)
+    button.MouseEnter:Connect(function()
+        TweenService:Create(button, TweenInfo.new(0.3), {
+            BackgroundTransparency = 0.1
+        }):Play()
+    end)
+
+    button.MouseLeave:Connect(function()
+        TweenService:Create(button, TweenInfo.new(0.3), {
+            BackgroundTransparency = 0.3
+        }):Play()
+    end)
+end
+
+addButtonHoverEffect(VerifyButton)
+addButtonHoverEffect(GetKeyButton)
+
+-- Time container hover effect
+TimeContainer.MouseEnter:Connect(function()
+    TweenService:Create(TimeContainer, TweenInfo.new(0.3), {
+        BackgroundTransparency = 0.1
+    }):Play()
+end)
+
+TimeContainer.MouseLeave:Connect(function()
+    TweenService:Create(TimeContainer, TweenInfo.new(0.3), {
+        BackgroundTransparency = 0.2
+    }):Play()
+end)
+
+-- Make frame draggable
+local dragging
+local dragInput
+local dragStart
+local startPos
+
+local function update(input)
+    local delta = input.Position - dragStart
+    Frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+
+Frame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = Frame.Position
+
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+Frame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and input == dragInput then
+        update(input)
+    end
+end)
+
+-- Initial animations
+Frame.BackgroundTransparency = 1
+TimeContainer.BackgroundTransparency = 1
+TextBox.BackgroundTransparency = 1
+VerifyButton.BackgroundTransparency = 1
+GetKeyButton.BackgroundTransparency = 1
+
+-- Fade in animations
+wait(0.1)
+TweenService:Create(Frame, TweenInfo.new(0.5), {
+    BackgroundTransparency = 0.1
+}):Play()
+
+wait(0.2)
+TweenService:Create(TimeContainer, TweenInfo.new(0.5), {
+    BackgroundTransparency = 0.2
+}):Play()
+
+wait(0.3)
+TweenService:Create(TextBox, TweenInfo.new(0.5), {
+    BackgroundTransparency = 0.5
+}):Play()
+
+wait(0.4)
+TweenService:Create(VerifyButton, TweenInfo.new(0.5), {
+    BackgroundTransparency = 0.3
+}):Play()
+
+wait(0.5)
+TweenService:Create(GetKeyButton, TweenInfo.new(0.5), {
+    BackgroundTransparency = 0.3
+}):Play()
+
+repeat wait() until keyValid
