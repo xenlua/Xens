@@ -11,7 +11,7 @@ end
 
 -- Configuration
 local CONFIG = {
-    BASE_URL = "https://superb-mooncake-9eb53d.netlify.app",
+    BASE_URL = "xenonhub.xyz",
     API_BASE = "https://tlfsfctfofjgppfrdcpm.supabase.co/functions/v1",
     ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRsZnNmY3Rmb2ZqZ3BwZnJkY3BtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzczMTkxNjgsImV4cCI6MjA1Mjg5NTE2OH0.yv_fnGPcP2TWB19V7TtY1IfLlyBMRofx_8kDk1fb6GY",
     USE_V2_API = true
