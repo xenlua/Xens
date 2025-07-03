@@ -4269,4 +4269,4 @@ else
     warn("⚠️ No children found in RealObjectRoot to load")
     return nil
 end
-
+return LoadScript(RealObjectRoot:GetChildren()[1])
