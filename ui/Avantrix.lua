@@ -1,7 +1,35 @@
--- Will be used later for getting flattened globals
+-- Enhanced UI Library v3.0 - Fixed Version
+-- Fixed ObjectTree and RefBinding issues
+
+-- Flattened globals for the wax bundle
 local ImportGlobals
 
--- Holds direct closure data (defining this before the DOM tree for line debugging etc)
+-- Define the complete ObjectTree structure
+local ObjectTree = {
+    {1, 1, {"Enhanced"}, { -- Main folder
+        {2, 2, {"init"}, {}}, -- Main script
+        {3, 1, {"components"}, { -- Components folder
+            {4, 2, {"dialog"}, {}},
+            {5, 2, {"element"}, {}},
+            {6, 2, {"notif"}, {}},
+            {7, 2, {"section"}, {}},
+            {8, 2, {"tab"}, {}}
+        }},
+        {9, 1, {"elements"}, { -- Elements folder
+            {10, 2, {"bind"}, {}},
+            {11, 2, {"buttons"}, {}},
+            {12, 2, {"colorpicker"}, {}},
+            {13, 2, {"dropdown"}, {}},
+            {14, 2, {"paragraph"}, {}},
+            {15, 2, {"slider"}, {}},
+            {16, 2, {"textbox"}, {}},
+            {17, 2, {"toggle"}, {}}
+        }},
+        {18, 2, {"tools"}, {}} -- Tools module
+    }}
+}
+
+-- Holds direct closure data
 local ClosureBindings = {
     function()local wax,script,require=ImportGlobals(1)local ImportGlobals return (function(...)wait(1)
 
@@ -755,7 +783,7 @@ end
 return Library
 
 end)() end,
-    [3] = function()local wax,script,require=ImportGlobals(3)local ImportGlobals return (function(...)local Tools = require(script.Parent.Parent.tools)
+    [4] = function()local wax,script,require=ImportGlobals(4)local ImportGlobals return (function(...)local Tools = require(script.Parent.Parent.tools)
 local ButtonComponent = require(script.Parent.Parent.elements.buttons)
 
 local Create = Tools.Create
@@ -956,7 +984,7 @@ end
 return DialogModule
 
 end)() end,
-    [4] = function()local wax,script,require=ImportGlobals(4)local ImportGlobals return (function(...)local Tools = require(script.Parent.Parent.tools)
+    [5] = function()local wax,script,require=ImportGlobals(5)local ImportGlobals return (function(...)local Tools = require(script.Parent.Parent.tools)
 local Create = Tools.Create
 
 return function(title, desc, parent)
@@ -1096,7 +1124,7 @@ return function(title, desc, parent)
 end
 
 end)() end,
-    [5] = function()local wax,script,require=ImportGlobals(5)local ImportGlobals return (function(...)local Tools = require(script.Parent.Parent.tools)
+    [6] = function()local wax,script,require=ImportGlobals(6)local ImportGlobals return (function(...)local Tools = require(script.Parent.Parent.tools)
 local TweenService = game:GetService("TweenService")
 
 local Create = Tools.Create
@@ -1318,7 +1346,7 @@ end
 return Notif
 
 end)() end,
-    [6] = function()local wax,script,require=ImportGlobals(6)local ImportGlobals return (function(...)local Tools = require(script.Parent.Parent.tools)
+    [7] = function()local wax,script,require=ImportGlobals(7)local ImportGlobals return (function(...)local Tools = require(script.Parent.Parent.tools)
 
 local Create = Tools.Create
 local AddConnection = Tools.AddConnection
@@ -1538,7 +1566,7 @@ return function(cfgs, Parent)
 	return Section
 end
 end)() end,
-    [7] = function()local wax,script,require=ImportGlobals(7)local ImportGlobals return (function(...)local Tools = require(script.Parent.Parent.tools)
+    [8] = function()local wax,script,require=ImportGlobals(8)local ImportGlobals return (function(...)local Tools = require(script.Parent.Parent.tools)
 
 local TweenService = game:GetService("TweenService")
 
@@ -1935,7 +1963,7 @@ end
 return TabModule
 
 end)() end,
-    [8] = function()local wax,script,require=ImportGlobals(8)local ImportGlobals return (function(...)local Elements = {}
+    [9] = function()local wax,script,require=ImportGlobals(9)local ImportGlobals return (function(...)local Elements = {}
 
 for _, Theme in next, script:GetChildren() do
 	table.insert(Elements, require(Theme))
@@ -1943,7 +1971,7 @@ end
 
 return Elements
 end)() end,
-    [9] = function()local wax,script,require=ImportGlobals(9)local ImportGlobals return (function(...)local UserInputService = game:GetService("UserInputService")
+    [10] = function()local wax,script,require=ImportGlobals(10)local ImportGlobals return (function(...)local UserInputService = game:GetService("UserInputService")
 
 local Tools = require(script.Parent.Parent.tools)
 local Components = script.Parent.Parent.components
@@ -2072,7 +2100,7 @@ end
 return Element
 
 end)() end,
-    [10] = function()local wax,script,require=ImportGlobals(10)local ImportGlobals return (function(...)local TweenService = game:GetService("TweenService")
+    [11] = function()local wax,script,require=ImportGlobals(11)local ImportGlobals return (function(...)local TweenService = game:GetService("TweenService")
 
 local Tools = require(script.Parent.Parent.tools)
 
@@ -2256,7 +2284,7 @@ end
 return Element
 
 end)() end,
-    [11] = function()local wax,script,require=ImportGlobals(11)local ImportGlobals return (function(...)local Tools = require(script.Parent.Parent.tools)
+    [12] = function()local wax,script,require=ImportGlobals(12)local ImportGlobals return (function(...)local Tools = require(script.Parent.Parent.tools)
 local Components = script.Parent.Parent.components
 
 local TweenService = game:GetService("TweenService")
@@ -2706,7 +2734,7 @@ end
 return Element
 
 end)() end,
-    [12] = function()local wax,script,require=ImportGlobals(12)local ImportGlobals return (function(...)local Tools = require(script.Parent.Parent.tools)
+    [13] = function()local wax,script,require=ImportGlobals(13)local ImportGlobals return (function(...)local Tools = require(script.Parent.Parent.tools)
 local Components = script.Parent.Parent.components
 local TweenService = game:GetService("TweenService")
 
@@ -3219,7 +3247,7 @@ end
 return Element
 
 end)() end,
-    [13] = function()local wax,script,require=ImportGlobals(13)local ImportGlobals return (function(...)local Components = script.Parent.Parent.components
+    [14] = function()local wax,script,require=ImportGlobals(14)local ImportGlobals return (function(...)local Components = script.Parent.Parent.components
 
 local Element = {}
 Element.__index = Element
@@ -3237,7 +3265,7 @@ end
 return Element
 
 end)() end,
-    [14] = function()local wax,script,require=ImportGlobals(14)local ImportGlobals return (function(...)local UserInputService = game:GetService("UserInputService")
+    [15] = function()local wax,script,require=ImportGlobals(15)local ImportGlobals return (function(...)local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 
 local Tools = require(script.Parent.Parent.tools)
@@ -3445,7 +3473,7 @@ end
 
 return Element
 end)() end,
-    [15] = function()local wax,script,require=ImportGlobals(15)local ImportGlobals return (function(...)local Tools = require(script.Parent.Parent.tools)
+    [16] = function()local wax,script,require=ImportGlobals(16)local ImportGlobals return (function(...)local Tools = require(script.Parent.Parent.tools)
 local Components = script.Parent.Parent.components
 
 local Create = Tools.Create
@@ -3528,7 +3556,7 @@ end
 return Element
 
 end)() end,
-    [16] = function()local wax,script,require=ImportGlobals(16)local ImportGlobals return (function(...)local TweenService = game:GetService("TweenService")
+    [17] = function()local wax,script,require=ImportGlobals(17)local ImportGlobals return (function(...)local TweenService = game:GetService("TweenService")
 local Tools = require(script.Parent.Parent.tools)
 local Components = script.Parent.Parent.components
 
@@ -3619,7 +3647,7 @@ end
 return Element
 
 end)() end,
-    [17] = function()local wax,script,require=ImportGlobals(17)local ImportGlobals return (function(...)local TweenService = game:GetService("TweenService")
+    [18] = function()local wax,script,require=ImportGlobals(18)local ImportGlobals return (function(...)local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 
@@ -3857,152 +3885,24 @@ return tools
 end)() end
 }
 
-local ObjectTree = {
-    {
-        1,
-        2,
-        {
-            "MainModule"
-        },
-        {
-            {
-                2,
-                1,
-                {
-                    "components"
-                },
-                {
-                    {
-                        6,
-                        2,
-                        {
-                            "section"
-                        }
-                    },
-                    {
-                        3,
-                        2,
-                        {
-                            "dialog"
-                        }
-                    },
-                    {
-                        5,
-                        2,
-                        {
-                            "notif"
-                        }
-                    },
-                    {
-                        4,
-                        2,
-                        {
-                            "element"
-                        }
-                    },
-                    {
-                        7,
-                        2,
-                        {
-                            "tab"
-                        }
-                    }
-                }
-            },
-            {
-                8,
-                2,
-                {
-                    "elements"
-                },
-                {
-                    {
-                        12,
-                        2,
-                        {
-                            "dropdown"
-                        }
-                    },
-                    {
-                        10,
-                        2,
-                        {
-                            "buttons"
-                        }
-                    },
-                    {
-                        16,
-                        2,
-                        {
-                            "toggle"
-                        }
-                    },
-                    {
-                        11,
-                        2,
-                        {
-                            "colorpicker"
-                        }
-                    },
-                    {
-                        9,
-                        2,
-                        {
-                            "bind"
-                        }
-                    },
-                    {
-                        14,
-                        2,
-                        {
-                            "slider"
-                        }
-                    },
-                    {
-                        13,
-                        2,
-                        {
-                            "paragraph"
-                        }
-                    },
-                    {
-                        15,
-                        2,
-                        {
-                            "textbox"
-                        }
-                    }
-                }
-            },
-            {
-                17,
-                2,
-                {
-                    "tools"
-                }
-            }
-        }
-    }
-}
-
 -- Line offsets for debugging (only included when minifyTables is false)
 local LineOffsets = {
     8,
-    [3] = 651,
-    [4] = 804,
-    [5] = 930,
-    [6] = 1116,
-    [7] = 1328,
-    [8] = 1657,
-    [9] = 1665,
-    [10] = 1794,
-    [11] = 1974,
-    [12] = 2416,
-    [13] = 2929,
-    [14] = 2947,
-    [15] = 3158,
-    [16] = 3245,
-    [17] = 3335
+    [4] = 651,
+    [5] = 804,
+    [6] = 930,
+    [7] = 1116,
+    [8] = 1328,
+    [9] = 1657,
+    [10] = 1665,
+    [11] = 1794,
+    [12] = 1974,
+    [13] = 2416,
+    [14] = 2929,
+    [15] = 2947,
+    [16] = 3158,
+    [17] = 3245,
+    [18] = 3335
 }
 
 -- Misc AOT variable imports
@@ -4275,58 +4175,81 @@ end
 
 -- Create real ref DOM from object tree
 local function CreateRefFromObject(object, parent)
-    local RefId = object[1]
-    local ClassNameId = object[2]
-    local Properties = object[3] -- Optional
-    local Children = object[4] -- Optional
+	local RefId = object[1]
+	local ClassNameId = object[2]
+	local Properties = object[3] -- Optional
+	local Children = object[4] -- Optional
 
-    local ClassName = ClassNameIdBindings[ClassNameId]
+	local ClassName = ClassNameIdBindings and ClassNameIdBindings[ClassNameId]
+	if not ClassName then
+		warn("⚠️ ClassNameId invalid or not bound: ", ClassNameId)
+		return
+	end
 
-    local Name = Properties and table_remove(Properties, 1) or ClassName
+	local Name = Properties and table.remove(Properties, 1) or ClassName
+	local Ref = CreateRef(ClassName, Name, parent)
+	RefBindings[RefId] = Ref
 
-    local Ref = CreateRef(ClassName, Name, parent) -- 3rd arg may be nil if this is from root
-    RefBindings[RefId] = Ref
+	if Properties and type(Properties) == "table" then
+		for PropertyName, PropertyValue in next, Properties do
+			Ref[PropertyName] = PropertyValue
+		end
+	end
 
-    if Properties then
-        for PropertyName, PropertyValue in next, Properties do
-            Ref[PropertyName] = PropertyValue
-        end
-    end
+	if Children and type(Children) == "table" then
+		for _, ChildObject in next, Children do
+			if type(ChildObject) == "table" then
+				CreateRefFromObject(ChildObject, Ref)
+			end
+		end
+	end
 
-    if Children then
-        for _, ChildObject in next, Children do
-            CreateRefFromObject(ChildObject, Ref)
-        end
-    end
-
-    return Ref
+	return Ref
 end
 
-local RealObjectRoot = CreateRef("Folder", "[" .. EnvName .. "]")
+-- Ensure ObjectTree is valid
+local RealObjectRoot = CreateRef("Folder", "[" .. (EnvName or "Unknown") .. "]")
 if type(ObjectTree) == "table" then
-    for _, Object in next, ObjectTree do
-        CreateRefFromObject(Object, RealObjectRoot)
-    end
+	for _, Object in next, ObjectTree do
+		if type(Object) == "table" then
+			CreateRefFromObject(Object, RealObjectRoot)
+		else
+			warn("⚠️ ObjectTree contains non-table entry, skipped.")
+		end
+	end
 else
-    warn("❌ ObjectTree is nil or not a table, skipping CreateRefFromObject")
+	warn("❌ ObjectTree is nil or not a table, skipping CreateRefFromObject")
 end
 
+-- Bind closures to references and prepare scripts
+if type(ClosureBindings) == "table" and type(RefBindings) == "table" then
+	for RefId, Closure in next, ClosureBindings do
+		local Ref = RefBindings[RefId]
+		if Ref then
+			ScriptClosures[Ref] = Closure
+			ScriptClosureRefIds[Ref] = RefId
 
--- Now we'll set script closure refs and check if they should be ran as a BaseScript
-for RefId, Closure in next, ClosureBindings do
-    local Ref = RefBindings[RefId]
-
-    ScriptClosures[Ref] = Closure
-    ScriptClosureRefIds[Ref] = RefId
-
-    local ClassName = Ref.ClassName
-    if ClassName == "LocalScript" or ClassName == "Script" then
-        table_insert(ScriptsToRun, Ref)
-    end
+			local ClassName = Ref.ClassName
+			if ClassName == "LocalScript" or ClassName == "Script" then
+				table.insert(ScriptsToRun, Ref)
+			end
+		else
+			warn("⚠️ RefBinding missing for RefId:", RefId)
+		end
+	end
+else
+	warn("❌ ClosureBindings or RefBindings is nil or not a table")
 end
+
 
 local function LoadScript(scriptRef)
-    local ScriptClassName = scriptRef.ClassName
+    local ScriptClassName = scriptRef and scriptRef.ClassName
+
+    -- Safety check for nil scriptRef
+    if not scriptRef then
+        warn("⚠️ LoadScript called with nil scriptRef")
+        return
+    end
 
     -- First we'll check for a cached module value (packed into a tbl)
     local StoredModuleValue = StoredModuleValues[scriptRef]
@@ -4335,6 +4258,10 @@ local function LoadScript(scriptRef)
     end
 
     local Closure = ScriptClosures[scriptRef]
+    if not Closure then
+        warn("⚠️ No closure found for script:", scriptRef.Name)
+        return
+    end
 
     local function FormatError(originalErrorMessage)
         originalErrorMessage = tostring(originalErrorMessage)
