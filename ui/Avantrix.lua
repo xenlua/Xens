@@ -4185,16 +4185,20 @@ end
 
 
 -- Now we'll set script closure refs and check if they should be ran as a BaseScript
-for RefId, Closure in next, ClosureBindings do
-    local Ref = RefBindings[RefId]
+if type(ClosureBindings) == "table" and type(RefBindings) == "table" then
+    for RefId, Closure in next, ClosureBindings do
+        local Ref = RefBindings[RefId]
 
-    ScriptClosures[Ref] = Closure
-    ScriptClosureRefIds[Ref] = RefId
+        ScriptClosures[Ref] = Closure
+        ScriptClosureRefIds[Ref] = RefId
 
-    local ClassName = Ref.ClassName
-    if ClassName == "LocalScript" or ClassName == "Script" then
-        table_insert(ScriptsToRun, Ref)
+        local ClassName = Ref.ClassName
+        if ClassName == "LocalScript" or ClassName == "Script" then
+            table.insert(ScriptsToRun, Ref)
+        end
     end
+else
+    warn("❌ ClosureBindings or RefBindings is nil / not a table")
 end
 
 local function LoadScript(scriptRef)
