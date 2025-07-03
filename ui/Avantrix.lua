@@ -19,6 +19,27 @@ function generateRandomString(length)
     return randomString
 end
 
+-- ===== SAFE SHADOW CREATION FUNCTION =====
+local function createShadow(parent, offset, radius, transparency)
+    -- Safe shadow creation that doesn't use DropShadow
+    local shadowFrame = Instance.new("Frame")
+    shadowFrame.Name = "ShadowFrame"
+    shadowFrame.Size = UDim2.new(1, radius * 2, 1, radius * 2)
+    shadowFrame.Position = UDim2.new(0, -radius + offset.X, 0, -radius + offset.Y)
+    shadowFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    shadowFrame.BackgroundTransparency = transparency or 0.7
+    shadowFrame.BorderSizePixel = 0
+    shadowFrame.ZIndex = (parent.ZIndex or 1) - 1
+    shadowFrame.Parent = parent
+    
+    -- Add corner radius to match parent
+    local shadowCorner = Instance.new("UICorner")
+    shadowCorner.CornerRadius = UDim.new(0, 8)
+    shadowCorner.Parent = shadowFrame
+    
+    return shadowFrame
+end
+
 -- ===== SERVICE IMPORTS =====
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
@@ -281,13 +302,10 @@ function Library:Load(cfgs)
 			},
 			Thickness = 2, -- Thicker border for better visibility
 		}),
-		Create("DropShadow", {
-			Color = Color3.fromRGB(0, 0, 0),
-			Offset = Vector2.new(0, 4),
-			Radius = 12,
-			Transparency = 0.3,
-		}),
 	})
+
+	-- Add safe shadow instead of DropShadow
+	createShadow(canvas_group, Vector2.new(0, 4), 12, 0.3)
 
 	-- Enhanced mobile optimization
 	if isMobile then
@@ -320,13 +338,10 @@ function Library:Load(cfgs)
 			LineJoinMode = Enum.LineJoinMode.Round,
 			Thickness = 2,
 		}),
-		Create("DropShadow", {
-			Color = Color3.fromRGB(0, 0, 0),
-			Offset = Vector2.new(0, 2),
-			Radius = 8,
-			Transparency = 0.4,
-		}),
 	})
+
+	-- Add safe shadow for toggle button
+	createShadow(togglebtn, Vector2.new(0, 2), 8, 0.4)
 
 	-- ===== ENHANCED TOGGLE FUNCTIONALITY =====
 	local function ToggleVisibility()
@@ -657,6 +672,25 @@ local ButtonComponent = require(script.Parent.Parent.elements.buttons)
 
 local Create = Tools.Create
 
+-- Safe shadow creation function
+local function createShadow(parent, offset, radius, transparency)
+    local shadowFrame = Instance.new("Frame")
+    shadowFrame.Name = "ShadowFrame"
+    shadowFrame.Size = UDim2.new(1, radius * 2, 1, radius * 2)
+    shadowFrame.Position = UDim2.new(0, -radius + offset.X, 0, -radius + offset.Y)
+    shadowFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    shadowFrame.BackgroundTransparency = transparency or 0.7
+    shadowFrame.BorderSizePixel = 0
+    shadowFrame.ZIndex = (parent.ZIndex or 1) - 1
+    shadowFrame.Parent = parent
+    
+    local shadowCorner = Instance.new("UICorner")
+    shadowCorner.CornerRadius = UDim.new(0, 8)
+    shadowCorner.Parent = shadowFrame
+    
+    return shadowFrame
+end
+
 local DialogModule = {}
 local ActiveDialog = nil
 
@@ -711,13 +745,10 @@ function DialogModule:Create(config, parent)
             ThemeProps = { Color = "bordercolor" },
             Thickness = 2, -- Thicker border
         }),
-        Create("DropShadow", {
-            Color = Color3.fromRGB(0, 0, 0),
-            Offset = Vector2.new(0, 6),
-            Radius = 15,
-            Transparency = 0.3,
-        }),
     })
+
+    -- Add safe shadow instead of DropShadow
+    createShadow(dialog, Vector2.new(0, 6), 15, 0.3)
 
     local uilist_layout = Instance.new("UIListLayout")
     uilist_layout.SortOrder = Enum.SortOrder.LayoutOrder
@@ -975,6 +1006,25 @@ local TweenService = game:GetService("TweenService")
 local Create = Tools.Create
 local AddConnection = Tools.AddConnection
 
+-- Safe shadow creation function
+local function createShadow(parent, offset, radius, transparency)
+    local shadowFrame = Instance.new("Frame")
+    shadowFrame.Name = "ShadowFrame"
+    shadowFrame.Size = UDim2.new(1, radius * 2, 1, radius * 2)
+    shadowFrame.Position = UDim2.new(0, -radius + offset.X, 0, -radius + offset.Y)
+    shadowFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    shadowFrame.BackgroundTransparency = transparency or 0.7
+    shadowFrame.BorderSizePixel = 0
+    shadowFrame.ZIndex = (parent.ZIndex or 1) - 1
+    shadowFrame.Parent = parent
+    
+    local shadowCorner = Instance.new("UICorner")
+    shadowCorner.CornerRadius = UDim.new(0, 8)
+    shadowCorner.Parent = shadowFrame
+    
+    return shadowFrame
+end
+
 local Notif = {}
 
 function Notif:Init(Gui)
@@ -1027,13 +1077,10 @@ function Notif:ShowNotification(titleText, descriptionText, duration)
             Color = Color3.fromRGB(40, 40, 50),
             Thickness = 2, -- Thicker border
         }),
-        Create("DropShadow", {
-            Color = Color3.fromRGB(0, 0, 0),
-            Offset = Vector2.new(0, 4),
-            Radius = 12,
-            Transparency = 0.4,
-        }),
     })
+
+    -- Add safe shadow instead of DropShadow
+    createShadow(main, Vector2.new(0, 4), 12, 0.4)
 
     local holderin = Create("Frame", {
         AutomaticSize = Enum.AutomaticSize.Y,
@@ -3473,7 +3520,35 @@ local RunService = game:GetService("RunService")
 local tools = { Signals = {} }
 
 -- ===== ENHANCED THEME SYSTEM =====
-local themes = loadstring(game:HttpGet("https://raw.githubusercontent.com/Just3itx/3itx-UI-LIB/refs/heads/main/themes"))()
+local themes = {
+    default = {
+        maincolor = Color3.fromRGB(25, 25, 30),
+        bordercolor = Color3.fromRGB(60, 60, 70),
+        titlecolor = Color3.fromRGB(255, 255, 255),
+        descriptioncolor = Color3.fromRGB(180, 180, 180),
+        elementdescription = Color3.fromRGB(160, 160, 160),
+        scrollcolor = Color3.fromRGB(100, 100, 110),
+        togglebg = Color3.fromRGB(100, 150, 255),
+        toggleborder = Color3.fromRGB(80, 130, 235),
+        sliderbar = Color3.fromRGB(50, 50, 60),
+        sliderbarstroke = Color3.fromRGB(70, 70, 80),
+        sliderprogressbg = Color3.fromRGB(100, 150, 255),
+        sliderprogressborder = Color3.fromRGB(80, 130, 235),
+        sliderdotbg = Color3.fromRGB(255, 255, 255),
+        sliderdotstroke = Color3.fromRGB(100, 150, 255),
+        containeritemsbg = Color3.fromRGB(30, 30, 35),
+        itembg = Color3.fromRGB(40, 40, 45),
+        itemcheckmarkcolor = Color3.fromRGB(100, 150, 255),
+        itemTextOn = Color3.fromRGB(255, 255, 255),
+        itemTextOff = Color3.fromRGB(160, 160, 160),
+        valuebg = Color3.fromRGB(100, 150, 255),
+        valuetext = Color3.fromRGB(255, 255, 255),
+        onTextBtn = Color3.fromRGB(255, 255, 255),
+        offTextBtn = Color3.fromRGB(160, 160, 160),
+        onBgLineBtn = Color3.fromRGB(100, 150, 255),
+        offBgLineBtn = Color3.fromRGB(60, 60, 70),
+    }
+}
 
 local currentTheme = themes.default
 local themedObjects = {}
