@@ -4147,59 +4147,72 @@ end
 
 -- Create real ref DOM from object tree
 local function CreateRefFromObject(object, parent)
-    local RefId = object[1]
-    local ClassNameId = object[2]
-    local Properties = object[3] -- Optional
-    local Children = object[4] -- Optional
+	local RefId = object[1]
+	local ClassNameId = object[2]
+	local Properties = object[3] -- Optional
+	local Children = object[4] -- Optional
 
-    local ClassName = ClassNameIdBindings[ClassNameId]
+	local ClassName = ClassNameIdBindings and ClassNameIdBindings[ClassNameId]
+	if not ClassName then
+		warn("⚠️ ClassNameId invalid or not bound: ", ClassNameId)
+		return
+	end
 
-    local Name = Properties and table_remove(Properties, 1) or ClassName
+	local Name = Properties and table.remove(Properties, 1) or ClassName
+	local Ref = CreateRef(ClassName, Name, parent)
+	RefBindings[RefId] = Ref
 
-    local Ref = CreateRef(ClassName, Name, parent) -- 3rd arg may be nil if this is from root
-    RefBindings[RefId] = Ref
+	if Properties and type(Properties) == "table" then
+		for PropertyName, PropertyValue in next, Properties do
+			Ref[PropertyName] = PropertyValue
+		end
+	end
 
-    if Properties then
-        for PropertyName, PropertyValue in next, Properties do
-            Ref[PropertyName] = PropertyValue
-        end
-    end
+	if Children and type(Children) == "table" then
+		for _, ChildObject in next, Children do
+			if type(ChildObject) == "table" then
+				CreateRefFromObject(ChildObject, Ref)
+			end
+		end
+	end
 
-    if Children then
-        for _, ChildObject in next, Children do
-            CreateRefFromObject(ChildObject, Ref)
-        end
-    end
-
-    return Ref
+	return Ref
 end
 
-local RealObjectRoot = CreateRef("Folder", "[" .. EnvName .. "]")
+-- Ensure ObjectTree is valid
+local RealObjectRoot = CreateRef("Folder", "[" .. (EnvName or "Unknown") .. "]")
 if type(ObjectTree) == "table" then
-    for _, Object in next, ObjectTree do
-        CreateRefFromObject(Object, RealObjectRoot)
-    end
+	for _, Object in next, ObjectTree do
+		if type(Object) == "table" then
+			CreateRefFromObject(Object, RealObjectRoot)
+		else
+			warn("⚠️ ObjectTree contains non-table entry, skipped.")
+		end
+	end
 else
-    warn("❌ ObjectTree is nil or not a table, skipping CreateRefFromObject")
+	warn("❌ ObjectTree is nil or not a table, skipping CreateRefFromObject")
 end
 
-
--- Now we'll set script closure refs and check if they should be ran as a BaseScript
+-- Bind closures to references and prepare scripts
 if type(ClosureBindings) == "table" and type(RefBindings) == "table" then
-    for RefId, Closure in next, ClosureBindings do
-        local Ref = RefBindings[RefId]
+	for RefId, Closure in next, ClosureBindings do
+		local Ref = RefBindings[RefId]
+		if Ref then
+			ScriptClosures[Ref] = Closure
+			ScriptClosureRefIds[Ref] = RefId
 
-        ScriptClosures[Ref] = Closure
-        ScriptClosureRefIds[Ref] = RefId
-
-        local ClassName = Ref.ClassName
-        if ClassName == "LocalScript" or ClassName == "Script" then
-            table.insert(ScriptsToRun, Ref)
-        end
-    end
+			local ClassName = Ref.ClassName
+			if ClassName == "LocalScript" or ClassName == "Script" then
+				table.insert(ScriptsToRun, Ref)
+			end
+		else
+			warn("⚠️ RefBinding missing for RefId:", RefId)
+		end
+	end
 else
-    warn("❌ ClosureBindings or RefBindings is nil / not a table")
+	warn("❌ ClosureBindings or RefBindings is nil or not a table")
 end
+
 
 local function LoadScript(scriptRef)
     local ScriptClassName = scriptRef.ClassName
