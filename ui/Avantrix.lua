@@ -4252,6 +4252,11 @@ local function LoadScript(scriptRef)
     end
 
     local Closure = ScriptClosures[scriptRef]
+    
+    -- CRITICAL FIX: Check if Closure is nil
+    if not Closure then
+        error("Script closure not found for " .. scriptRef:GetFullName() .. ". This usually means the script was not properly compiled or included in the build.", 2)
+    end
 
     local function FormatError(originalErrorMessage)
         originalErrorMessage = tostring(originalErrorMessage)
