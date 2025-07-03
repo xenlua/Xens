@@ -3857,6 +3857,134 @@ return tools
 end)() end
 }
 
+local ObjectTree = {
+    {
+        1,
+        2,
+        {
+            "MainModule"
+        },
+        {
+            {
+                2,
+                1,
+                {
+                    "components"
+                },
+                {
+                    {
+                        6,
+                        2,
+                        {
+                            "section"
+                        }
+                    },
+                    {
+                        3,
+                        2,
+                        {
+                            "dialog"
+                        }
+                    },
+                    {
+                        5,
+                        2,
+                        {
+                            "notif"
+                        }
+                    },
+                    {
+                        4,
+                        2,
+                        {
+                            "element"
+                        }
+                    },
+                    {
+                        7,
+                        2,
+                        {
+                            "tab"
+                        }
+                    }
+                }
+            },
+            {
+                8,
+                2,
+                {
+                    "elements"
+                },
+                {
+                    {
+                        12,
+                        2,
+                        {
+                            "dropdown"
+                        }
+                    },
+                    {
+                        10,
+                        2,
+                        {
+                            "buttons"
+                        }
+                    },
+                    {
+                        16,
+                        2,
+                        {
+                            "toggle"
+                        }
+                    },
+                    {
+                        11,
+                        2,
+                        {
+                            "colorpicker"
+                        }
+                    },
+                    {
+                        9,
+                        2,
+                        {
+                            "bind"
+                        }
+                    },
+                    {
+                        14,
+                        2,
+                        {
+                            "slider"
+                        }
+                    },
+                    {
+                        13,
+                        2,
+                        {
+                            "paragraph"
+                        }
+                    },
+                    {
+                        15,
+                        2,
+                        {
+                            "textbox"
+                        }
+                    }
+                }
+            },
+            {
+                17,
+                2,
+                {
+                    "tools"
+                }
+            }
+        }
+    }
+}
+
 -- Line offsets for debugging (only included when minifyTables is false)
 local LineOffsets = {
     8,
@@ -4144,6 +4272,7 @@ local function CreateRef(className, name, parent)
 
     return Ref
 end
+
 -- Create real ref DOM from object tree
 local function CreateRefFromObject(object, parent)
     local RefId = object[1]
@@ -4152,9 +4281,10 @@ local function CreateRefFromObject(object, parent)
     local Children = object[4] -- Optional
 
     local ClassName = ClassNameIdBindings[ClassNameId]
-    local Name = Properties and table.remove(Properties, 1) or ClassName
 
-    local Ref = CreateRef(ClassName, Name, parent)
+    local Name = Properties and table_remove(Properties, 1) or ClassName
+
+    local Ref = CreateRef(ClassName, Name, parent) -- 3rd arg may be nil if this is from root
     RefBindings[RefId] = Ref
 
     if Properties then
@@ -4181,35 +4311,24 @@ else
     warn("❌ ObjectTree is nil or not a table, skipping CreateRefFromObject")
 end
 
--- Set script closure refs and check if they should be run
-if type(ClosureBindings) == "table" and type(RefBindings) == "table" then
-    for RefId, Closure in next, ClosureBindings do
-        local Ref = RefBindings[RefId]
-        if Ref then
-            ScriptClosures[Ref] = Closure
-            ScriptClosureRefIds[Ref] = RefId
 
-            local ClassName = Ref.ClassName
-            if ClassName == "LocalScript" or ClassName == "Script" then
-                table.insert(ScriptsToRun, Ref)
-            end
-        else
-            warn("⚠️ RefBinding missing for RefId:", RefId)
-        end
+-- Now we'll set script closure refs and check if they should be ran as a BaseScript
+for RefId, Closure in next, ClosureBindings do
+    local Ref = RefBindings[RefId]
+
+    ScriptClosures[Ref] = Closure
+    ScriptClosureRefIds[Ref] = RefId
+
+    local ClassName = Ref.ClassName
+    if ClassName == "LocalScript" or ClassName == "Script" then
+        table_insert(ScriptsToRun, Ref)
     end
-else
-    warn("❌ ClosureBindings or RefBindings is nil / not a table")
 end
 
--- Loader for each script
 local function LoadScript(scriptRef)
-    if not scriptRef then
-        warn("❌ LoadScript called with nil scriptRef")
-        return
-    end
-
     local ScriptClassName = scriptRef.ClassName
 
+    -- First we'll check for a cached module value (packed into a tbl)
     local StoredModuleValue = StoredModuleValues[scriptRef]
     if StoredModuleValue and ScriptClassName == "ModuleScript" then
         return unpack(StoredModuleValue)
@@ -4219,54 +4338,169 @@ local function LoadScript(scriptRef)
 
     local function FormatError(originalErrorMessage)
         originalErrorMessage = tostring(originalErrorMessage)
+
         local VirtualFullName = scriptRef:GetFullName()
-        local OriginalErrorLine, BaseErrorMessage = string.match(originalErrorMessage, "[^:]+:(%d+): (.+)")
+
+        -- Check for vanilla/Roblox format
+        local OriginalErrorLine, BaseErrorMessage = string_match(originalErrorMessage, "[^:]+:(%d+): (.+)")
 
         if not OriginalErrorLine or not LineOffsets then
             return VirtualFullName .. ":*: " .. (BaseErrorMessage or originalErrorMessage)
         end
 
         OriginalErrorLine = tonumber(OriginalErrorLine)
+
         local RefId = ScriptClosureRefIds[scriptRef]
         local LineOffset = LineOffsets[RefId]
-        local RealErrorLine = OriginalErrorLine - LineOffset + 1
 
-        if RealErrorLine < 0 then RealErrorLine = "?" end
+        local RealErrorLine = OriginalErrorLine - LineOffset + 1
+        if RealErrorLine < 0 then
+            RealErrorLine = "?"
+        end
+
         return VirtualFullName .. ":" .. RealErrorLine .. ": " .. BaseErrorMessage
     end
 
+    -- If it's a BaseScript, we'll just run it directly!
     if ScriptClassName == "LocalScript" or ScriptClassName == "Script" then
-        local success, err = pcall(Closure)
-        if not success then
-            error(FormatError(err), 0)
+        local RunSuccess, ErrorMessage = pcall(Closure)
+        if not RunSuccess then
+            error(FormatError(ErrorMessage), 0)
         end
     else
-        local result = { pcall(Closure) }
-        local success = table.remove(result, 1)
-        if not success then
-            local err = table.remove(result, 1)
-            error(FormatError(err), 0)
+        local PCallReturn = {pcall(Closure)}
+
+        local RunSuccess = table_remove(PCallReturn, 1)
+        if not RunSuccess then
+            local ErrorMessage = table_remove(PCallReturn, 1)
+            error(FormatError(ErrorMessage), 0)
         end
-        StoredModuleValues[scriptRef] = result
-        return unpack(result)
+
+        StoredModuleValues[scriptRef] = PCallReturn
+        return unpack(PCallReturn)
     end
 end
 
--- Defer execution of runnable scripts
+-- We'll assign the actual func from the top of this output for flattening user globals at runtime
+-- Returns (in a tuple order): wax, script, require
+function ImportGlobals(refId)
+    local ScriptRef = RefBindings[refId]
+
+    local function RealCall(f, ...)
+        local PCallReturn = {pcall(f, ...)}
+
+        local CallSuccess = table_remove(PCallReturn, 1)
+        if not CallSuccess then
+            error(PCallReturn[1], 3)
+        end
+
+        return unpack(PCallReturn)
+    end
+
+    -- `wax.shared` index
+    local WaxShared = table_freeze(setmetatable({}, {
+        __index = SharedEnvironment,
+        __newindex = function(_, index, value)
+            SharedEnvironment[index] = value
+        end,
+        __len = function()
+            return #SharedEnvironment
+        end,
+        __iter = function()
+            return next, SharedEnvironment
+        end,
+    }))
+
+    local Global_wax = table_freeze({
+        -- From AOT variable imports
+        version = WaxVersion,
+        envname = EnvName,
+
+        shared = WaxShared,
+
+        -- "Real" globals instead of the env set ones
+        script = script,
+        require = require,
+    })
+
+    local Global_script = ScriptRef
+
+    local function Global_require(module, ...)
+        local ModuleArgType = type(module)
+
+        local ErrorNonModuleScript = "Attempted to call require with a non-ModuleScript"
+        local ErrorSelfRequire = "Attempted to call require with self"
+
+        if ModuleArgType == "table" and RefChildren[module]  then
+            if module.ClassName ~= "ModuleScript" then
+                error(ErrorNonModuleScript, 2)
+            elseif module == ScriptRef then
+                error(ErrorSelfRequire, 2)
+            end
+
+            return LoadScript(module)
+        elseif ModuleArgType == "string" and string_sub(module, 1, 1) ~= "@" then
+            -- The control flow on this SUCKS
+
+            if #module == 0 then
+                error("Attempted to call require with empty string", 2)
+            end
+
+            local CurrentRefPointer = ScriptRef
+
+            if string_sub(module, 1, 1) == "/" then
+                CurrentRefPointer = RealObjectRoot
+            elseif string_sub(module, 1, 2) == "./" then
+                module = string_sub(module, 3)
+            end
+
+            local PreviousPathMatch
+            for PathMatch in string_gmatch(module, "([^/]*)/?") do
+                local RealIndex = PathMatch
+                if PathMatch == ".." then
+                    RealIndex = "Parent"
+                end
+
+                -- Don't advance dir if it's just another "/" either
+                if RealIndex ~= "" then
+                    local ResultRef = CurrentRefPointer:FindFirstChild(RealIndex)
+                    if not ResultRef then
+                        local CurrentRefParent = CurrentRefPointer.Parent
+                        if CurrentRefParent then
+                            ResultRef = CurrentRefParent:FindFirstChild(RealIndex)
+                        end
+                    end
+
+                    if ResultRef then
+                        CurrentRefPointer = ResultRef
+                    elseif PathMatch ~= PreviousPathMatch and PathMatch ~= "init" and PathMatch ~= "init.server" and PathMatch ~= "init.client" then
+                        error("Virtual script path \"" .. module .. "\" not found", 2)
+                    end
+                end
+
+                -- For possible checks next cycle
+                PreviousPathMatch = PathMatch
+            end
+
+            if CurrentRefPointer.ClassName ~= "ModuleScript" then
+                error(ErrorNonModuleScript, 2)
+            elseif CurrentRefPointer == ScriptRef then
+                error(ErrorSelfRequire, 2)
+            end
+
+            return LoadScript(CurrentRefPointer)
+        end
+
+        return RealCall(require, module, ...)
+    end
+
+    -- Now, return flattened globals ready for direct runtime exec
+    return Global_wax, Global_script, Global_require
+end
+
 for _, ScriptRef in next, ScriptsToRun do
-    if ScriptRef then
-        Defer(LoadScript, ScriptRef)
-    else
-        warn("⚠️ ScriptsToRun contains nil entry, skipped.")
-    end
+    Defer(LoadScript, ScriptRef)
 end
 
--- Final module execution from root
-local InitScript = RealObjectRoot:GetChildren()[1]
-if InitScript then
-    return LoadScript(InitScript)
-else
-    warn("⚠️ No children found in RealObjectRoot to load")
-    return nil
-end
+-- AoT adjustment: Load init module (MainModule behavior)
 return LoadScript(RealObjectRoot:GetChildren()[1])
