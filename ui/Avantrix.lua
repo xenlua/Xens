@@ -5,6 +5,31 @@ local ImportGlobals
 local ClosureBindings = {
     function()local wax,script,require=ImportGlobals(1)local ImportGlobals return (function(...)wait(1)
 
+-- ===== ENHANCED SINGLETON SYSTEM =====
+local GLOBAL_LIBRARY_INSTANCE = nil
+local CLEANUP_CONNECTIONS = {}
+
+-- Function to cleanup any existing instance
+local function CleanupExistingInstance()
+    if GLOBAL_LIBRARY_INSTANCE then
+        pcall(function()
+            GLOBAL_LIBRARY_INSTANCE:Destroy()
+        end)
+        GLOBAL_LIBRARY_INSTANCE = nil
+    end
+    
+    -- Clear any remaining cleanup connections
+    for i = #CLEANUP_CONNECTIONS, 1, -1 do
+        local connection = CLEANUP_CONNECTIONS[i]
+        if connection and connection.Connected then
+            pcall(function()
+                connection:Disconnect()
+            end)
+        end
+        CLEANUP_CONNECTIONS[i] = nil
+    end
+end
+
 -- ===== UTILITY FUNCTIONS =====
 function generateRandomString(length)
     local charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-_=+[]{}|;:',.<>?/`~"
@@ -62,7 +87,7 @@ local function MakeDraggable(DragPoint, Main)
 	local Dragging, DragInput, MousePos, FramePos = false
 	local dragConnection, moveConnection
 	
-	AddConnection(DragPoint.InputBegan, function(Input)
+	local connection1 = AddConnection(DragPoint.InputBegan, function(Input)
 		if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
 			Dragging = true
 			MousePos = Input.Position
@@ -84,7 +109,7 @@ local function MakeDraggable(DragPoint, Main)
 		end
 	end)
 	
-	AddConnection(DragPoint.InputChanged, function(Input)
+	local connection2 = AddConnection(DragPoint.InputChanged, function(Input)
 		if Input.UserInputType == Enum.UserInputType.MouseMovement then
 			DragInput = Input
 		end
@@ -96,6 +121,11 @@ local function MakeDraggable(DragPoint, Main)
 			Main.Position = UDim2.new(FramePos.X.Scale, FramePos.X.Offset + Delta.X, FramePos.Y.Scale, FramePos.Y.Offset + Delta.Y)
 		end
 	end)
+	
+	-- Store connections for cleanup
+	table.insert(CLEANUP_CONNECTIONS, connection1)
+	table.insert(CLEANUP_CONNECTIONS, connection2)
+	table.insert(CLEANUP_CONNECTIONS, moveConnection)
 end
 
 -- ===== MAIN LIBRARY =====
@@ -108,6 +138,7 @@ local Library = {
 	Author = "Enhanced Team",
 	ActiveConnections = {}, -- Track all active connections
 	RunningTasks = {}, -- Track all running tasks
+	IsDestroyed = false,
 }
 
 -- ===== GUI CREATION =====
@@ -123,19 +154,22 @@ require(Components.notif):Init(GUI)
 
 -- ===== ENHANCED LIBRARY METHODS =====
 function Library:SetTheme(themeName)
+	if self.IsDestroyed then return end
 	Tools.SetTheme(themeName)
 end
 
 function Library:GetTheme()
+	if self.IsDestroyed then return end
 	return Tools.GetPropsCurrentTheme()
 end
 
 function Library:AddTheme(themeName, themeProps)
+	if self.IsDestroyed then return end
 	Tools.AddTheme(themeName, themeProps)
 end
 
 function Library:IsRunning()
-	return GUI and GUI.Parent == gethui()
+	return not self.IsDestroyed and GUI and GUI.Parent == gethui()
 end
 
 -- ===== ENHANCED CLEANUP SYSTEM =====
@@ -160,14 +194,23 @@ function Library:StopAllTasks()
 	end
 	
 	-- Wait a moment for loops to stop
-	task.wait(0.5)
+	task.wait(0.1)
 end
 
 function Library:Destroy()
+	if self.IsDestroyed then 
+		return
+	end
+	
+	print("[Enhanced UI] Starting cleanup process...")
+	
+	-- Mark as destroyed first to prevent any new operations
+	self.IsDestroyed = true
+	
 	-- First stop all running tasks and loops
 	self:StopAllTasks()
 	
-	-- Disconnect all connections
+	-- Disconnect all connections from Tools
 	for i, Connection in pairs(Tools.Signals) do
 		if Connection and Connection.Connected then
 			pcall(function()
@@ -176,6 +219,7 @@ function Library:Destroy()
 		end
 	end
 	
+	-- Disconnect all active connections
 	for i, Connection in pairs(self.ActiveConnections) do
 		if Connection and Connection.Connected then
 			pcall(function()
@@ -184,21 +228,44 @@ function Library:Destroy()
 		end
 	end
 	
+	-- Disconnect cleanup connections
+	for i, Connection in pairs(CLEANUP_CONNECTIONS) do
+		if Connection and Connection.Connected then
+			pcall(function()
+				Connection:Disconnect()
+			end)
+		end
+	end
+	
 	-- Clear all tables
-	table.clear(Tools.Signals)
-	table.clear(self.ActiveConnections)
-	table.clear(self.Flags)
-	table.clear(self.Signals)
-	table.clear(self.RunningTasks)
+	pcall(function() table.clear(Tools.Signals) end)
+	pcall(function() table.clear(self.ActiveConnections) end)
+	pcall(function() table.clear(self.Flags) end)
+	pcall(function() table.clear(self.Signals) end)
+	pcall(function() table.clear(self.RunningTasks) end)
+	pcall(function() table.clear(CLEANUP_CONNECTIONS) end)
 	
 	-- Destroy GUI
 	if GUI then
-		GUI:Destroy()
+		pcall(function()
+			GUI:Destroy()
+		end)
 		GUI = nil
 	end
 	
+	-- Clear window reference
+	self.Window = nil
+	self.LoadedWindow = nil
+	
 	-- Final cleanup
-	Tools.Cleanup()
+	pcall(function()
+		Tools.Cleanup()
+	end)
+	
+	-- Clear global instance reference
+	GLOBAL_LIBRARY_INSTANCE = nil
+	
+	print("[Enhanced UI] Cleanup completed successfully!")
 end
 
 -- Enhanced background cleanup task
@@ -206,7 +273,9 @@ task.spawn(function()
 	while Library:IsRunning() do
 		task.wait(1)
 	end
-	Library:Destroy()
+	if not Library.IsDestroyed then
+		Library:Destroy()
+	end
 end)
 
 -- ===== ELEMENTS SYSTEM =====
@@ -222,6 +291,8 @@ for _, ElementComponent in ipairs(ElementsTable) do
 	assert(type(ElementComponent.New) == "function", "ElementComponent missing New function")
 
 	Elements["Add" .. ElementComponent.__type] = function(self, Idx, Config)
+		if Library.IsDestroyed then return end
+		
 		ElementComponent.Container = self.Container
 		ElementComponent.Type = self.Type
 		ElementComponent.ScrollFrame = self.ScrollFrame
@@ -235,6 +306,8 @@ Library.Elements = Elements
 
 -- ===== ENHANCED CALLBACK SYSTEM =====
 function Library:Callback(Callback, ...)
+	if self.IsDestroyed then return end
+	
 	local success, result = pcall(Callback, ...)
 
 	if success then
@@ -256,16 +329,21 @@ end
 
 -- ===== NOTIFICATION SYSTEM =====
 function Library:Notification(titleText, descriptionText, duration)
+	if self.IsDestroyed then return end
 	require(Components.notif):ShowNotification(titleText, descriptionText, duration or 5)
 end
 
 -- ===== DIALOG SYSTEM =====
 function Library:Dialog(config)
+	if self.IsDestroyed then return end
     return require(Components.dialog):Create(config, self.LoadedWindow)
 end
 
 -- ===== ENHANCED MAIN WINDOW CREATION =====
 function Library:Load(cfgs)
+	-- Cleanup any existing instance first
+	CleanupExistingInstance()
+	
 	cfgs = cfgs or {}
 	cfgs.Title = cfgs.Title or "Enhanced UI Library v3.0"
 	cfgs.ToggleButton = cfgs.ToggleButton or ""
@@ -277,6 +355,9 @@ function Library:Load(cfgs)
 		warn("Cannot create more than one window.")
 		return
 	end
+	
+	-- Set this instance as the global one
+	GLOBAL_LIBRARY_INSTANCE = Library
 	
 	Library.Window = GUI
 
@@ -345,6 +426,8 @@ function Library:Load(cfgs)
 
 	-- ===== ENHANCED TOGGLE FUNCTIONALITY =====
 	local function ToggleVisibility()
+		if Library.IsDestroyed then return end
+		
 		local isVisible = canvas_group.Visible
 		local endPosition = isVisible and UDim2.new(0.5, 0, -1, 0) or UDim2.new(0.5, 0, 0.5, 0)
 		local endTransparency = isVisible and 1 or 0
@@ -381,12 +464,15 @@ function Library:Load(cfgs)
 
 	-- Event connections
 	MakeDraggable(togglebtn, togglebtn)
-	AddConnection(togglebtn.MouseButton1Click, ToggleVisibility)
-	AddConnection(UserInputService.InputBegan, function(value)
+	local toggleConnection = AddConnection(togglebtn.MouseButton1Click, ToggleVisibility)
+	local keyConnection = AddConnection(UserInputService.InputBegan, function(value)
 		if value.KeyCode == cfgs.BindGui then
 			ToggleVisibility()
 		end
 	end)
+	
+	table.insert(CLEANUP_CONNECTIONS, toggleConnection)
+	table.insert(CLEANUP_CONNECTIONS, keyConnection)
 
 	-- ===== ENHANCED TOP FRAME (TITLE BAR) =====
 	local top_frame = Create("Frame", {
@@ -500,47 +586,41 @@ function Library:Load(cfgs)
 
 	-- Enhanced button hover effects
 	local function addHoverEffect(button, hoverColor, normalColor)
-		AddConnection(button.MouseEnter, function()
+		local enterConnection = AddConnection(button.MouseEnter, function()
+			if Library.IsDestroyed then return end
 			TweenService:Create(button, TweenInfo.new(0.2), {
 				BackgroundTransparency = 0.7,
 				BackgroundColor3 = hoverColor or button.BackgroundColor3
 			}):Play()
 		end)
 		
-		AddConnection(button.MouseLeave, function()
+		local leaveConnection = AddConnection(button.MouseLeave, function()
+			if Library.IsDestroyed then return end
 			TweenService:Create(button, TweenInfo.new(0.2), {
 				BackgroundTransparency = 0.9,
 				BackgroundColor3 = normalColor or button.BackgroundColor3
 			}):Play()
 		end)
+		
+		table.insert(CLEANUP_CONNECTIONS, enterConnection)
+		table.insert(CLEANUP_CONNECTIONS, leaveConnection)
 	end
 
 	addHoverEffect(minimizebtn, Color3.fromRGB(100, 100, 100))
 	addHoverEffect(closebtn, Color3.fromRGB(255, 69, 69), Color3.fromRGB(220, 53, 69))
 
 	-- Enhanced button event connections
-	AddConnection(minimizebtn.MouseButton1Click, ToggleVisibility)
-	AddConnection(closebtn.MouseButton1Click, function()
-		-- Enhanced close with confirmation
-		Library:Dialog({
-			Title = "Confirm Close",
-			Content = "Are you sure you want to close the UI? This will stop all running processes.",
-			Buttons = {
-				{
-					Title = "Yes, Close",
-					Variant = "Primary",
-					Callback = function()
-						Library:Destroy()
-					end,
-				},
-				{
-					Title = "Cancel",
-					Variant = "Ghost",
-					Callback = function() end,
-				}
-			}
-		})
+	local minimizeConnection = AddConnection(minimizebtn.MouseButton1Click, ToggleVisibility)
+	local closeConnection = AddConnection(closebtn.MouseButton1Click, function()
+		if Library.IsDestroyed then return end
+		
+		-- Enhanced close - direct destruction without dialog
+		print("[Enhanced UI] Close button pressed - destroying UI...")
+		Library:Destroy()
 	end)
+	
+	table.insert(CLEANUP_CONNECTIONS, minimizeConnection)
+	table.insert(CLEANUP_CONNECTIONS, closeConnection)
 
 	-- ===== ENHANCED TAB FRAME (SIDEBAR) =====
 	local tab_frame = Create("Frame", {
@@ -601,9 +681,11 @@ function Library:Load(cfgs)
 	})
 
 	-- Auto-resize canvas
-	AddConnection(TabHolder.UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"), function()
+	local canvasConnection = AddConnection(TabHolder.UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"), function()
+		if Library.IsDestroyed then return end
 		TabHolder.CanvasSize = UDim2.new(0, 0, 0, TabHolder.UIListLayout.AbsoluteContentSize.Y + 32)
 	end)
+	table.insert(CLEANUP_CONNECTIONS, canvasConnection)
 
 	AddScrollAnim(TabHolder)
 
@@ -624,30 +706,36 @@ function Library:Load(cfgs)
 	local TabModule = require(Components.tab):Init(containerFolder)
 	
 	function Tabs:AddTab(title)
+		if Library.IsDestroyed then return end
 		return TabModule:New(title, TabHolder)
 	end
 	
 	function Tabs:SelectTab(Tab)
+		if Library.IsDestroyed then return end
 		Tab = Tab or 1
 		TabModule:SelectTab(Tab)
 	end
 
 	-- ===== ENHANCED METHODS =====
 	function Tabs:GetCurrentTab()
+		if Library.IsDestroyed then return end
 		return TabModule.SelectedTab
 	end
 
 	function Tabs:GetTabCount()
+		if Library.IsDestroyed then return end
 		return TabModule.TabCount
 	end
 
 	function Tabs:RemoveTab(tabIndex)
+		if Library.IsDestroyed then return end
 		if TabModule.Tabs[tabIndex] then
 			TabModule:CleanupTab(tabIndex)
 		end
 	end
 
 	function Tabs:StopAllProcesses()
+		if Library.IsDestroyed then return end
 		Library:StopAllTasks()
 		Library:Notification("System", "All running processes have been stopped.", 3)
 	end
@@ -697,7 +785,10 @@ local ActiveDialog = nil
 function DialogModule:Create(config, parent)
     -- Remove existing dialog if any
     if ActiveDialog then
-        ActiveDialog:Destroy()
+        pcall(function()
+            ActiveDialog:Destroy()
+        end)
+        ActiveDialog = nil
     end
 
     local scrolling_frame = Instance.new("ScrollingFrame")
@@ -841,8 +932,11 @@ function DialogModule:Create(config, parent)
     -- Add enhanced buttons
     for i, buttonConfig in ipairs(config.Buttons) do
         local wrappedCallback = function()
-            buttonConfig.Callback()
-            scrolling_frame:Destroy()
+            pcall(buttonConfig.Callback)
+            pcall(function()
+                scrolling_frame:Destroy()
+            end)
+            ActiveDialog = nil
         end
 
         -- Create a new button instance with the container
@@ -993,7 +1087,9 @@ return function(title, desc, parent)
 	Element:SetTitle(title)
 
 	function Element:Destroy()
-		Element.Frame:Destroy()
+		pcall(function()
+			Element.Frame:Destroy()
+		end)
 	end
 
 	return Element
@@ -1212,7 +1308,9 @@ function Notif:ShowNotification(titleText, descriptionText, duration)
         fadeOutTween:Play()
         
         fadeOutTween.Completed:Connect(function()
-            main:Destroy()
+            pcall(function()
+                main:Destroy()
+            end)
         end)
     end)
 end
@@ -1475,12 +1573,16 @@ end
 -- Enhanced cleanup function
 function TabModule:CleanupTab(TabIndex)
 	if TabModule.SearchContainers[TabIndex] then
-		TabModule.SearchContainers[TabIndex]:Destroy()
+		pcall(function()
+			TabModule.SearchContainers[TabIndex]:Destroy()
+		end)
 		TabModule.SearchContainers[TabIndex] = nil
 	end
 	
 	if TabModule.Containers[TabIndex] then
-		TabModule.Containers[TabIndex]:Destroy()
+		pcall(function()
+			TabModule.Containers[TabIndex]:Destroy()
+		end)
 		TabModule.Containers[TabIndex] = nil
 	end
 	
@@ -2899,7 +3001,9 @@ function Element:New(Idx, Config)
 	function Dropdown:Refresh(Options, Delete)
 		if Delete then
 			for _, v in pairs(Dropdown.Buttons) do
-				v:Destroy()
+				pcall(function()
+					v:Destroy()
+				end)
 			end
 			Dropdown.Buttons = {}
 		end
@@ -2931,7 +3035,9 @@ function Element:New(Idx, Config)
 		local function clearValueText()
 			for _, label in pairs(holder:GetChildren()) do
 				if label:IsA("TextButton") then
-					label:Destroy()
+					pcall(function()
+						label:Destroy()
+					end)
 				end
 			end
 		end
@@ -3751,153 +3857,24 @@ return tools
 end)() end
 }
 
--- Holds the actual DOM data
-local ObjectTree = {
-    {
-        1,
-        2,
-        {
-            "MainModule"
-        },
-        {
-            {
-                2,
-                1,
-                {
-                    "components"
-                },
-                {
-                    {
-                        6,
-                        2,
-                        {
-                            "section"
-                        }
-                    },
-                    {
-                        3,
-                        2,
-                        {
-                            "dialog"
-                        }
-                    },
-                    {
-                        5,
-                        2,
-                        {
-                            "notif"
-                        }
-                    },
-                    {
-                        4,
-                        2,
-                        {
-                            "element"
-                        }
-                    },
-                    {
-                        7,
-                        2,
-                        {
-                            "tab"
-                        }
-                    }
-                }
-            },
-            {
-                8,
-                2,
-                {
-                    "elements"
-                },
-                {
-                    {
-                        12,
-                        2,
-                        {
-                            "dropdown"
-                        }
-                    },
-                    {
-                        10,
-                        2,
-                        {
-                            "buttons"
-                        }
-                    },
-                    {
-                        16,
-                        2,
-                        {
-                            "toggle"
-                        }
-                    },
-                    {
-                        11,
-                        2,
-                        {
-                            "colorpicker"
-                        }
-                    },
-                    {
-                        9,
-                        2,
-                        {
-                            "bind"
-                        }
-                    },
-                    {
-                        14,
-                        2,
-                        {
-                            "slider"
-                        }
-                    },
-                    {
-                        13,
-                        2,
-                        {
-                            "paragraph"
-                        }
-                    },
-                    {
-                        15,
-                        2,
-                        {
-                            "textbox"
-                        }
-                    }
-                }
-            },
-            {
-                17,
-                2,
-                {
-                    "tools"
-                }
-            }
-        }
-    }
-}
-
 -- Line offsets for debugging (only included when minifyTables is false)
 local LineOffsets = {
     8,
-    [3] = 454,
-    [4] = 607,
-    [5] = 733,
-    [6] = 919,
-    [7] = 1131,
-    [8] = 1460,
-    [9] = 1468,
-    [10] = 1597,
-    [11] = 1777,
-    [12] = 2219,
-    [13] = 2732,
-    [14] = 2750,
-    [15] = 2961,
-    [16] = 3048,
-    [17] = 3138
+    [3] = 651,
+    [4] = 804,
+    [5] = 930,
+    [6] = 1116,
+    [7] = 1328,
+    [8] = 1657,
+    [9] = 1665,
+    [10] = 1794,
+    [11] = 1974,
+    [12] = 2416,
+    [13] = 2929,
+    [14] = 2947,
+    [15] = 3158,
+    [16] = 3245,
+    [17] = 3335
 }
 
 -- Misc AOT variable imports
