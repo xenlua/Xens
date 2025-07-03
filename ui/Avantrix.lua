@@ -4175,9 +4175,14 @@ local function CreateRefFromObject(object, parent)
 end
 
 local RealObjectRoot = CreateRef("Folder", "[" .. EnvName .. "]")
-for _, Object in next, ObjectTree do
-    CreateRefFromObject(Object, RealObjectRoot)
+if type(ObjectTree) == "table" then
+    for _, Object in next, ObjectTree do
+        CreateRefFromObject(Object, RealObjectRoot)
+    end
+else
+    warn("❌ ObjectTree is nil or not a table, skipping CreateRefFromObject")
 end
+
 
 -- Now we'll set script closure refs and check if they should be ran as a BaseScript
 for RefId, Closure in next, ClosureBindings do
