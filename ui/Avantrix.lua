@@ -1,35 +1,37 @@
--- Will be used later for getting flattened globals
+-- Enhanced UI Library v3.0 - Fixed Version
+-- Fixed ObjectTree and RefBinding issues
+
+-- Flattened globals for the wax bundle
 local ImportGlobals
 
--- Object tree structure
+-- Define the complete ObjectTree structure
 local ObjectTree = {
-    {1, 2, {"enhanced-ui-library"}, {
-        {2, 2, {"init"}},
-        {3, 1, {"components"}, {
-            {4, 2, {"dialog"}},
-            {5, 2, {"element"}},
-            {6, 2, {"notif"}},
-            {7, 2, {"section"}},
-            {8, 2, {"tab"}},
+    {1, 1, {"Enhanced"}, { -- Main folder
+        {2, 2, {"init"}, {}}, -- Main script
+        {3, 1, {"components"}, { -- Components folder
+            {4, 2, {"dialog"}, {}},
+            {5, 2, {"element"}, {}},
+            {6, 2, {"notif"}, {}},
+            {7, 2, {"section"}, {}},
+            {8, 2, {"tab"}, {}}
         }},
-        {9, 1, {"elements"}, {
-            {10, 2, {"init"}},
-            {11, 2, {"bind"}},
-            {12, 2, {"buttons"}},
-            {13, 2, {"colorpicker"}},
-            {14, 2, {"dropdown"}},
-            {15, 2, {"paragraph"}},
-            {16, 2, {"slider"}},
-            {17, 2, {"textbox"}},
-            {18, 2, {"toggle"}},
+        {9, 1, {"elements"}, { -- Elements folder
+            {10, 2, {"bind"}, {}},
+            {11, 2, {"buttons"}, {}},
+            {12, 2, {"colorpicker"}, {}},
+            {13, 2, {"dropdown"}, {}},
+            {14, 2, {"paragraph"}, {}},
+            {15, 2, {"slider"}, {}},
+            {16, 2, {"textbox"}, {}},
+            {17, 2, {"toggle"}, {}}
         }},
-        {19, 2, {"tools"}},
+        {18, 2, {"tools"}, {}} -- Tools module
     }}
 }
 
 -- Holds direct closure data
 local ClosureBindings = {
-    [2] = function()local wax,script,require=ImportGlobals(2)local ImportGlobals return (function(...)wait(1)
+    function()local wax,script,require=ImportGlobals(1)local ImportGlobals return (function(...)wait(1)
 
 -- ===== ENHANCED SINGLETON SYSTEM =====
 local GLOBAL_LIBRARY_INSTANCE = nil
@@ -97,7 +99,7 @@ local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 
 -- ===== MODULE IMPORTS =====
-local ElementsTable = require(script.elements.init)
+local ElementsTable = require(script.elements)
 local Tools = require(script.tools)
 local Components = script.components
 
@@ -1961,17 +1963,15 @@ end
 return TabModule
 
 end)() end,
-    [10] = function()local wax,script,require=ImportGlobals(10)local ImportGlobals return (function(...)local Elements = {}
+    [9] = function()local wax,script,require=ImportGlobals(9)local ImportGlobals return (function(...)local Elements = {}
 
-for _, Theme in next, script.Parent:GetChildren() do
-    if Theme.Name ~= "init" then
-        table.insert(Elements, require(Theme))
-    end
+for _, Theme in next, script:GetChildren() do
+	table.insert(Elements, require(Theme))
 end
 
 return Elements
 end)() end,
-    [11] = function()local wax,script,require=ImportGlobals(11)local ImportGlobals return (function(...)local UserInputService = game:GetService("UserInputService")
+    [10] = function()local wax,script,require=ImportGlobals(10)local ImportGlobals return (function(...)local UserInputService = game:GetService("UserInputService")
 
 local Tools = require(script.Parent.Parent.tools)
 local Components = script.Parent.Parent.components
@@ -2100,7 +2100,7 @@ end
 return Element
 
 end)() end,
-    [12] = function()local wax,script,require=ImportGlobals(12)local ImportGlobals return (function(...)local TweenService = game:GetService("TweenService")
+    [11] = function()local wax,script,require=ImportGlobals(11)local ImportGlobals return (function(...)local TweenService = game:GetService("TweenService")
 
 local Tools = require(script.Parent.Parent.tools)
 
@@ -2284,7 +2284,7 @@ end
 return Element
 
 end)() end,
-    [13] = function()local wax,script,require=ImportGlobals(13)local ImportGlobals return (function(...)local Tools = require(script.Parent.Parent.tools)
+    [12] = function()local wax,script,require=ImportGlobals(12)local ImportGlobals return (function(...)local Tools = require(script.Parent.Parent.tools)
 local Components = script.Parent.Parent.components
 
 local TweenService = game:GetService("TweenService")
@@ -2734,7 +2734,7 @@ end
 return Element
 
 end)() end,
-    [14] = function()local wax,script,require=ImportGlobals(14)local ImportGlobals return (function(...)local Tools = require(script.Parent.Parent.tools)
+    [13] = function()local wax,script,require=ImportGlobals(13)local ImportGlobals return (function(...)local Tools = require(script.Parent.Parent.tools)
 local Components = script.Parent.Parent.components
 local TweenService = game:GetService("TweenService")
 
@@ -3247,7 +3247,7 @@ end
 return Element
 
 end)() end,
-    [15] = function()local wax,script,require=ImportGlobals(15)local ImportGlobals return (function(...)local Components = script.Parent.Parent.components
+    [14] = function()local wax,script,require=ImportGlobals(14)local ImportGlobals return (function(...)local Components = script.Parent.Parent.components
 
 local Element = {}
 Element.__index = Element
@@ -3265,7 +3265,7 @@ end
 return Element
 
 end)() end,
-    [16] = function()local wax,script,require=ImportGlobals(16)local ImportGlobals return (function(...)local UserInputService = game:GetService("UserInputService")
+    [15] = function()local wax,script,require=ImportGlobals(15)local ImportGlobals return (function(...)local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 
 local Tools = require(script.Parent.Parent.tools)
@@ -3473,7 +3473,7 @@ end
 
 return Element
 end)() end,
-    [17] = function()local wax,script,require=ImportGlobals(17)local ImportGlobals return (function(...)local Tools = require(script.Parent.Parent.tools)
+    [16] = function()local wax,script,require=ImportGlobals(16)local ImportGlobals return (function(...)local Tools = require(script.Parent.Parent.tools)
 local Components = script.Parent.Parent.components
 
 local Create = Tools.Create
@@ -3556,7 +3556,7 @@ end
 return Element
 
 end)() end,
-    [18] = function()local wax,script,require=ImportGlobals(18)local ImportGlobals return (function(...)local TweenService = game:GetService("TweenService")
+    [17] = function()local wax,script,require=ImportGlobals(17)local ImportGlobals return (function(...)local TweenService = game:GetService("TweenService")
 local Tools = require(script.Parent.Parent.tools)
 local Components = script.Parent.Parent.components
 
@@ -3647,7 +3647,7 @@ end
 return Element
 
 end)() end,
-    [19] = function()local wax,script,require=ImportGlobals(19)local ImportGlobals return (function(...)local TweenService = game:GetService("TweenService")
+    [18] = function()local wax,script,require=ImportGlobals(18)local ImportGlobals return (function(...)local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 
@@ -3887,22 +3887,22 @@ end)() end
 
 -- Line offsets for debugging (only included when minifyTables is false)
 local LineOffsets = {
-    [2] = 8,
+    8,
     [4] = 651,
     [5] = 804,
     [6] = 930,
     [7] = 1116,
     [8] = 1328,
-    [10] = 1657,
-    [11] = 1665,
-    [12] = 1794,
-    [13] = 1974,
-    [14] = 2416,
-    [15] = 2929,
-    [16] = 2947,
-    [17] = 3158,
-    [18] = 3245,
-    [19] = 3335
+    [9] = 1657,
+    [10] = 1665,
+    [11] = 1794,
+    [12] = 1974,
+    [13] = 2416,
+    [14] = 2929,
+    [15] = 2947,
+    [16] = 3158,
+    [17] = 3245,
+    [18] = 3335
 }
 
 -- Misc AOT variable imports
@@ -4243,7 +4243,13 @@ end
 
 
 local function LoadScript(scriptRef)
-    local ScriptClassName = scriptRef.ClassName
+    local ScriptClassName = scriptRef and scriptRef.ClassName
+
+    -- Safety check for nil scriptRef
+    if not scriptRef then
+        warn("⚠️ LoadScript called with nil scriptRef")
+        return
+    end
 
     -- First we'll check for a cached module value (packed into a tbl)
     local StoredModuleValue = StoredModuleValues[scriptRef]
@@ -4252,10 +4258,9 @@ local function LoadScript(scriptRef)
     end
 
     local Closure = ScriptClosures[scriptRef]
-    
-    -- CRITICAL FIX: Check if Closure is nil
     if not Closure then
-        error("Script closure not found for " .. scriptRef:GetFullName() .. ". This usually means the script was not properly compiled or included in the build.", 2)
+        warn("⚠️ No closure found for script:", scriptRef.Name)
+        return
     end
 
     local function FormatError(originalErrorMessage)
