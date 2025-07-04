@@ -837,7 +837,10 @@ local ActiveDialog = nil
 function DialogModule:Create(config, parent)
     -- Remove existing dialog if any
     if ActiveDialog then
-        ActiveDialog:Destroy()
+        pcall(function()
+            ActiveDialog:Destroy()
+        end)
+        ActiveDialog = nil
     end
 
     local scrolling_frame = Instance.new("ScrollingFrame")
@@ -847,7 +850,7 @@ function DialogModule:Create(config, parent)
     scrolling_frame.ScrollBarThickness = 4
     scrolling_frame.Active = true
     scrolling_frame.BackgroundColor3 = Color3.new(0, 0, 0)
-    scrolling_frame.BackgroundTransparency = 0.2 -- Less transparent for better visibility
+    scrolling_frame.BackgroundTransparency = 0.15
     scrolling_frame.BorderColor3 = Color3.new(0, 0, 0)
     scrolling_frame.BorderSizePixel = 0
     scrolling_frame.Size = UDim2.new(1, 0, 1, 0)
@@ -865,8 +868,8 @@ function DialogModule:Create(config, parent)
     blocker.Parent = scrolling_frame
 
     local uipadding_3 = Instance.new("UIPadding")
-    uipadding_3.PaddingBottom = UDim.new(0, 50)
-    uipadding_3.PaddingTop = UDim.new(0, 50)
+    uipadding_3.PaddingBottom = UDim.new(0, 60)
+    uipadding_3.PaddingTop = UDim.new(0, 60)
     uipadding_3.Parent = scrolling_frame
 
     local dialog = Create("CanvasGroup", {
@@ -879,19 +882,27 @@ function DialogModule:Create(config, parent)
         },
         Parent = scrolling_frame,
     }, {
-        Create("UICorner", { CornerRadius = UDim.new(0, 8) }), -- More rounded
+        Create("UICorner", { CornerRadius = UDim.new(0, 12) }),
         Create("UIStroke", {
             ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
             ThemeProps = { Color = "bordercolor" },
-            Thickness = 2, -- Thicker border
+            Thickness = 2,
         }),
-        Create("DropShadow", {
-            Color = Color3.fromRGB(0, 0, 0),
-            Offset = Vector2.new(0, 6),
-            Radius = 15,
-            Transparency = 0.3,
+        Create("UIGradient", {
+            Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(245, 245, 245))
+            }),
+            Rotation = 90,
+            Transparency = NumberSequence.new({
+                ColorSequenceKeypoint.new(0, 0.96),
+                ColorSequenceKeypoint.new(1, 0.98)
+            })
         }),
     })
+
+    -- Add enhanced shadow
+    createShadow(dialog, Vector2.new(0, 8), 20, 0.25)
 
     local uilist_layout = Instance.new("UIListLayout")
     uilist_layout.SortOrder = Enum.SortOrder.LayoutOrder
@@ -899,7 +910,7 @@ function DialogModule:Create(config, parent)
 
     -- Create enhanced top bar with title
     Create("Frame", {
-        Size = UDim2.new(1, 0, 0, 50), -- Taller header
+        Size = UDim2.new(1, 0, 0, 60),
         ThemeProps = { BackgroundColor3 = "maincolor" },
         Parent = dialog,
     }, {
@@ -915,17 +926,17 @@ function DialogModule:Create(config, parent)
             }),
             Rotation = 90,
             Transparency = NumberSequence.new({
-                NumberSequenceKeypoint.new(0, 0.95),
-                NumberSequenceKeypoint.new(1, 0.98)
+                ColorSequenceKeypoint.new(0, 0.94),
+                ColorSequenceKeypoint.new(1, 0.97)
             })
         }),
         Create("TextLabel", {
             Font = Enum.Font.GothamBold,
             Text = config.Title,
-            TextSize = 18, -- Larger title
+            TextSize = 20,
             TextXAlignment = Enum.TextXAlignment.Left,
-            Position = UDim2.new(0, 16, 0, 0),
-            Size = UDim2.new(1, -32, 1, 0),
+            Position = UDim2.new(0, 20, 0, 0),
+            Size = UDim2.new(1, -40, 1, 0),
             BackgroundTransparency = 1,
             ThemeProps = { TextColor3 = "titlecolor" },
         }),
@@ -934,14 +945,14 @@ function DialogModule:Create(config, parent)
     -- Create enhanced content container
     local content = Create("TextLabel", {
         Text = config.Content,
-        TextSize = 15, -- Slightly larger text
+        TextSize = 16,
         Font = Enum.Font.Gotham,
         TextWrapped = true,
         TextXAlignment = Enum.TextXAlignment.Left,
         TextYAlignment = Enum.TextYAlignment.Top,
-        Size = UDim2.new(1, -32, 0, 0),
+        Size = UDim2.new(1, -40, 0, 0),
         AutomaticSize = Enum.AutomaticSize.Y,
-        Position = UDim2.new(0, 16, 0, 60),
+        Position = UDim2.new(0, 20, 0, 70),
         RichText = true,
         BackgroundTransparency = 1,
         ThemeProps = { TextColor3 = "descriptioncolor" },
@@ -949,15 +960,15 @@ function DialogModule:Create(config, parent)
     })
 
     local uipadding = Instance.new("UIPadding")
-    uipadding.PaddingBottom = UDim.new(0, 12)
-    uipadding.PaddingLeft = UDim.new(0, 16)
-    uipadding.PaddingRight = UDim.new(0, 16)
-    uipadding.PaddingTop = UDim.new(0, 12)
+    uipadding.PaddingBottom = UDim.new(0, 15)
+    uipadding.PaddingLeft = UDim.new(0, 20)
+    uipadding.PaddingRight = UDim.new(0, 20)
+    uipadding.PaddingTop = UDim.new(0, 15)
     uipadding.Parent = content
 
     -- Create enhanced button container
     local buttonContainer = Create("Frame", {
-        Size = UDim2.new(1, 0, 0, 60), -- Taller button area
+        Size = UDim2.new(1, 0, 0, 70),
         AutomaticSize = Enum.AutomaticSize.Y,
         ThemeProps = { BackgroundColor3 = "maincolor" },
         Parent = dialog,
@@ -968,13 +979,13 @@ function DialogModule:Create(config, parent)
             Thickness = 1,
         }),
         Create("UIPadding", {
-            PaddingTop = UDim.new(0, 15),
-            PaddingBottom = UDim.new(0, 15),
-            PaddingLeft = UDim.new(0, 16),
-            PaddingRight = UDim.new(0, 16),
+            PaddingTop = UDim.new(0, 18),
+            PaddingBottom = UDim.new(0, 18),
+            PaddingLeft = UDim.new(0, 20),
+            PaddingRight = UDim.new(0, 20),
         }),
         Create("UIListLayout", {
-            Padding = UDim.new(0, 12),
+            Padding = UDim.new(0, 15),
             FillDirection = Enum.FillDirection.Horizontal,
             HorizontalAlignment = Enum.HorizontalAlignment.Right,
             SortOrder = Enum.SortOrder.LayoutOrder,
@@ -984,8 +995,11 @@ function DialogModule:Create(config, parent)
     -- Add enhanced buttons
     for i, buttonConfig in ipairs(config.Buttons) do
         local wrappedCallback = function()
-            buttonConfig.Callback()
-            scrolling_frame:Destroy()
+            pcall(buttonConfig.Callback)
+            pcall(function()
+                scrolling_frame:Destroy()
+            end)
+            ActiveDialog = nil
         end
 
         -- Create a new button instance with the container
