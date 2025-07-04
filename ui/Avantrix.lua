@@ -46,18 +46,9 @@ local function MakeDraggable(DragPoint, Main)
 			MousePos = Input.Position
 			FramePos = Main.Position
 
-			-- Enhanced drag animation
-			TweenService:Create(Main, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {
-				Size = Main.Size - UDim2.new(0, 2, 0, 2)
-			}):Play()
-
 			AddConnection(Input.Changed, function()
 				if Input.UserInputState == Enum.UserInputState.End then
 					Dragging = false
-					-- Reset size with smooth animation
-					TweenService:Create(Main, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-						Size = Main.Size + UDim2.new(0, 2, 0, 2)
-					}):Play()
 				end
 			end)
 		end
@@ -72,12 +63,7 @@ local function MakeDraggable(DragPoint, Main)
 	AddConnection(UserInputService.InputChanged, function(Input)
 		if (Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch) and Dragging then
 			local Delta = Input.Position - MousePos
-			local newPosition = UDim2.new(FramePos.X.Scale, FramePos.X.Offset + Delta.X, FramePos.Y.Scale, FramePos.Y.Offset + Delta.Y)
-			
-			-- Smooth dragging animation
-			TweenService:Create(Main, TweenInfo.new(0.05, Enum.EasingStyle.Quad), {
-				Position = newPosition
-			}):Play()
+			Main.Position = UDim2.new(FramePos.X.Scale, FramePos.X.Offset + Delta.X, FramePos.Y.Scale, FramePos.Y.Offset + Delta.Y)
 		end
 	end)
 end
@@ -89,11 +75,26 @@ local Library = {
 	Signals = {},
 	ToggleBind = nil,
 	Version = "2.1.0", -- Updated version
-	Author = "Enhanced Xenon Team",
-	_isRunning = true,
-	_connections = {},
-	_threads = {},
+	Author = "Xenon Team Enhanced",
+	_isDestroyed = false,
+	_runningThreads = {},
+	_activeConnections = {},
 }
+
+-- ===== ENHANCED THREAD TRACKING =====
+local function TrackThread(thread)
+	if Library._runningThreads then
+		table.insert(Library._runningThreads, thread)
+	end
+	return thread
+end
+
+local function TrackConnection(connection)
+	if Library._activeConnections then
+		table.insert(Library._activeConnections, connection)
+	end
+	return connection
+end
 
 -- ===== GUI CREATION =====
 local GUI = Create("ScreenGui", {
@@ -109,18 +110,6 @@ require(Components.notif):Init(GUI)
 -- ===== ENHANCED LIBRARY METHODS =====
 function Library:SetTheme(themeName)
 	Tools.SetTheme(themeName)
-	-- Trigger visual refresh
-	self:_refreshTheme()
-end
-
-function Library:_refreshTheme()
-	-- Enhanced theme refresh with smooth transitions
-	for _, connection in pairs(Tools.themedObjects or {}) do
-		if connection.object and connection.object.Parent then
-			local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-			TweenService:Create(connection.object, tweenInfo, {}):Play()
-		end
-	end
 end
 
 function Library:GetTheme()
@@ -132,52 +121,66 @@ function Library:AddTheme(themeName, themeProps)
 end
 
 function Library:IsRunning()
-	return self._isRunning and GUI.Parent == gethui()
+	return GUI and GUI.Parent == gethui() and not self._isDestroyed
 end
 
 -- ===== ENHANCED CLEANUP SYSTEM =====
 function Library:Destroy()
-	print("🔄 Starting enhanced cleanup...")
-	
-	-- Stop all running state
-	self._isRunning = false
-	
-	-- Disconnect all custom connections
-	for i, connection in pairs(self._connections) do
-		if connection and connection.Connected then
-			connection:Disconnect()
-		end
-		self._connections[i] = nil
+	if self._isDestroyed then
+		return
 	end
 	
-	-- Stop all running threads/coroutines
-	for i, thread in pairs(self._threads) do
-		if thread and coroutine.status(thread) ~= "dead" then
-			-- Force stop thread (this is a conceptual approach - Lua doesn't have direct thread killing)
-			pcall(function() coroutine.close(thread) end)
+	print("[Enhanced UI] Starting cleanup process...")
+	self._isDestroyed = true
+	
+	-- Stop all running threads
+	if self._runningThreads then
+		for i, thread in ipairs(self._runningThreads) do
+			if thread and coroutine.status(thread) == "suspended" then
+				pcall(function()
+					coroutine.close(thread)
+				end)
+			end
 		end
-		self._threads[i] = nil
+		self._runningThreads = {}
 	end
 	
-	-- Enhanced GUI cleanup with fade animation
+	-- Disconnect all connections
+	if self._activeConnections then
+		for i, connection in ipairs(self._activeConnections) do
+			if connection and connection.Connected then
+				pcall(function()
+					connection:Disconnect()
+				end)
+			end
+		end
+		self._activeConnections = {}
+	end
+	
+	-- Clean up Tools connections
+	if Tools and Tools.Signals then
+		for i, Connection in pairs(Tools.Signals) do
+			if Connection and Connection.Connected then
+				pcall(function()
+					Connection:Disconnect()
+				end)
+			end
+		end
+		table.clear(Tools.Signals)
+	end
+	
+	-- Fade out GUI before destroying
 	if GUI then
-		local fadeInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-		local fadeTween = TweenService:Create(GUI, fadeInfo, {
+		local fadeOut = TweenService:Create(GUI, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {
 			Enabled = false
 		})
+		fadeOut:Play()
 		
-		fadeTween:Play()
-		fadeTween.Completed:Connect(function()
-			GUI:Destroy()
+		fadeOut.Completed:Connect(function()
+			pcall(function()
+				GUI:Destroy()
+			end)
 		end)
-	end
-	
-	-- Cleanup tools and connections
-	for i, Connection in pairs(Tools.Signals or {}) do
-		if Connection and Connection.Connected then
-			Connection:Disconnect()
-		end
-		Tools.Signals[i] = nil
 	end
 	
 	-- Clear all references
@@ -185,24 +188,41 @@ function Library:Destroy()
 	table.clear(self.Signals)
 	
 	-- Force garbage collection
+	task.wait(0.1)
 	collectgarbage("collect")
 	
-	print("✅ Enhanced cleanup completed - All scripts and connections stopped")
+	print("[Enhanced UI] Cleanup completed successfully!")
 end
 
--- Enhanced background cleanup task with better monitoring
-task.spawn(function()
+-- ===== ENHANCED BACKGROUND CLEANUP TASK =====
+TrackThread(task.spawn(function()
 	while Library:IsRunning() do
 		task.wait(1)
 		
-		-- Monitor performance and cleanup if needed
-		local memoryUsage = collectgarbage("count")
-		if memoryUsage > 100000 then -- 100MB threshold
-			collectgarbage("collect")
+		-- Clean up dead connections
+		if Library._activeConnections then
+			for i = #Library._activeConnections, 1, -1 do
+				local connection = Library._activeConnections[i]
+				if not connection or not connection.Connected then
+					table.remove(Library._activeConnections, i)
+				end
+			end
+		end
+		
+		-- Clean up finished threads
+		if Library._runningThreads then
+			for i = #Library._runningThreads, 1, -1 do
+				local thread = Library._runningThreads[i]
+				if not thread or coroutine.status(thread) == "dead" then
+					table.remove(Library._runningThreads, i)
+				end
+			end
 		end
 	end
+	
+	-- Auto cleanup when GUI is no longer running
 	Library:Destroy()
-end)
+end))
 
 -- ===== ELEMENTS SYSTEM =====
 local Elements = {}
@@ -211,7 +231,7 @@ Elements.__namecall = function(Table, Key, ...)
 	return Elements[Key](...)
 end
 
--- Dynamic element registration with enhanced features
+-- Dynamic element registration
 for _, ElementComponent in ipairs(ElementsTable) do
 	assert(ElementComponent.__type, "ElementComponent missing __type")
 	assert(type(ElementComponent.New) == "function", "ElementComponent missing New function")
@@ -222,20 +242,7 @@ for _, ElementComponent in ipairs(ElementsTable) do
 		ElementComponent.ScrollFrame = self.ScrollFrame
 		ElementComponent.Library = Library
 
-		local element = ElementComponent:New(Idx, Config)
-		
-		-- Add enhanced entrance animation
-		if element and element.Frame then
-			element.Frame.Position = element.Frame.Position + UDim2.new(0, 50, 0, 0)
-			element.Frame.BackgroundTransparency = 1
-			
-			TweenService:Create(element.Frame, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-				Position = element.Frame.Position - UDim2.new(0, 50, 0, 0),
-				BackgroundTransparency = 0
-			}):Play()
-		end
-		
-		return element
+		return ElementComponent:New(Idx, Config)
 	end
 end
 
@@ -243,6 +250,10 @@ Library.Elements = Elements
 
 -- ===== ENHANCED CALLBACK SYSTEM =====
 function Library:Callback(Callback, ...)
+	if self._isDestroyed then
+		return
+	end
+	
 	local success, result = pcall(Callback, ...)
 
 	if success then
@@ -250,39 +261,45 @@ function Library:Callback(Callback, ...)
 	else
 		local errorMessage = tostring(result)
 		local errorLine = string.match(errorMessage, ":(%d+):")
-		local errorInfo = `✨ Enhanced Callback Error ✨\n`
-		errorInfo = errorInfo .. `🔍 Error: {errorMessage}\n`
+		local errorInfo = `Callback execution failed.\n`
+		errorInfo = errorInfo .. `Error: {errorMessage}\n`
 
 		if errorLine then
-			errorInfo = errorInfo .. `📍 Line: {errorLine}\n`
+			errorInfo = errorInfo .. `Occurred on line: {errorLine}\n`
 		end
 
-		errorInfo = errorInfo .. `💡 Tip: Check function implementation for potential issues`
+		errorInfo = errorInfo .. `Possible Fix: Please check the function implementation for potential issues such as invalid arguments or logic errors at the indicated line number.`
 		warn(errorInfo)
 	end
 end
 
--- ===== ENHANCED NOTIFICATION SYSTEM =====
+-- ===== NOTIFICATION SYSTEM =====
 function Library:Notification(titleText, descriptionText, duration)
+	if self._isDestroyed then
+		return
+	end
 	require(Components.notif):ShowNotification(titleText, descriptionText, duration or 5)
 end
 
--- ===== DIALOG SYSTEM (PRESERVED) =====
+-- ===== DIALOG SYSTEM =====
 function Library:Dialog(config)
+	if self._isDestroyed then
+		return
+	end
     return require(Components.dialog):Create(config, self.LoadedWindow)
 end
 
 -- ===== MAIN WINDOW CREATION =====
 function Library:Load(cfgs)
 	cfgs = cfgs or {}
-	cfgs.Title = cfgs.Title or "✨ Enhanced Xentix UI Library"
+	cfgs.Title = cfgs.Title or "Enhanced Xentix UI Library"
 	cfgs.ToggleButton = cfgs.ToggleButton or ""
 	cfgs.BindGui = cfgs.BindGui or Enum.KeyCode.RightControl
 	cfgs.Size = cfgs.Size or UDim2.new(0, 680, 0, 420) -- Slightly larger for better visuals
 	cfgs.Position = cfgs.Position or UDim2.new(0.5, 0, 0.3, 0)
 
 	if Library.Window then
-		warn("❌ Cannot create more than one window.")
+		warn("Cannot create more than one window.")
 		return
 	end
 	
@@ -297,10 +314,11 @@ function Library:Load(cfgs)
 		Position = cfgs.Position,
 		Size = cfgs.Size,
 		Parent = GUI,
-		Visible = false
+		Visible = false,
+		GroupTransparency = 0,
 	}, {
 		Create("UICorner", {
-			CornerRadius = UDim.new(0, 12), -- More rounded corners
+			CornerRadius = UDim.new(0, 8), -- Increased corner radius
 		}),
 		Create("UIStroke", {
 			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
@@ -309,19 +327,18 @@ function Library:Load(cfgs)
 			},
 			Thickness = 2, -- Thicker border
 		}),
-		-- Enhanced shadow effect
+		-- Add subtle shadow effect
 		Create("ImageLabel", {
 			Image = "rbxasset://textures/ui/GuiImagePlaceholder.png",
-			ImageColor3 = Color3.new(0, 0, 0),
-			ImageTransparency = 0.7,
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.new(0.5, 3, 0.5, 3),
-			Size = UDim2.new(1, 6, 1, 6),
+			ImageTransparency = 0.8,
+			BackgroundTransparency = 1,
+			Size = UDim2.new(1, 4, 1, 4),
+			Position = UDim2.new(0, -2, 0, -2),
 			ZIndex = -1,
 		}),
 	})
 
-	-- Mobile optimization with better scaling
+	-- Enhanced mobile optimization
 	if isMobile then
 		canvas_group.Size = UDim2.new(0.95, 0, 0.9, 0)
 		canvas_group.Position = UDim2.new(0.5, 0, 0.5, 0)
@@ -340,7 +357,7 @@ function Library:Load(cfgs)
 		Image = cfgs.ToggleButton,
 	}, {
 		Create("UICorner", {
-			CornerRadius = UDim.new(0, 12),
+			CornerRadius = UDim.new(0, 8),
 		}),
 		Create("UIStroke", {
 			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
@@ -351,36 +368,23 @@ function Library:Load(cfgs)
 			LineJoinMode = Enum.LineJoinMode.Round,
 			Thickness = 2,
 		}),
-		-- Glow effect
-		Create("ImageLabel", {
-			Image = "rbxasset://textures/ui/GuiImagePlaceholder.png",
-			ImageColor3 = CurrentThemeProps.primarycolor or Color3.new(0.2, 0.6, 1),
-			ImageTransparency = 0.8,
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.new(0.5, 0, 0.5, 0),
-			Size = UDim2.new(1, 10, 1, 10),
-			ZIndex = -1,
-		}),
 	})
 
 	-- ===== ENHANCED TOGGLE FUNCTIONALITY =====
 	local function ToggleVisibility()
 		local isVisible = canvas_group.Visible
 		local endPosition = isVisible and UDim2.new(0.5, 0, -1, 0) or UDim2.new(0.5, 0, 0.5, 0)
-		local toggleEndPosition = isVisible and UDim2.new(0.5, 8, 0, 0) or UDim2.new(0.5, 8, 0, 0)
 	
-		-- Enhanced animation with bounce effect
-		local tweenInfo = TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-		local toggleTweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+		local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.InOut)
 	
 		local positionTween = TweenService:Create(canvas_group, tweenInfo, { Position = endPosition })
-		local toggleRotation = TweenService:Create(togglebtn, toggleTweenInfo, { Rotation = isVisible and 0 or 180 })
+		local transparencyTween = TweenService:Create(canvas_group, tweenInfo, { GroupTransparency = isVisible and 1 or 0 })
 	
 		canvas_group.Visible = true
 		togglebtn.Visible = false
 	
 		positionTween:Play()
-		toggleRotation:Play()
+		transparencyTween:Play()
 	
 		positionTween.Completed:Connect(function()
 			if isVisible then
@@ -390,18 +394,18 @@ function Library:Load(cfgs)
 		end)
 	end
 
-	-- Initial toggle with delay for smooth appearance
-	task.wait(0.5)
+	-- Initial toggle with entrance animation
+	task.wait(0.1)
 	ToggleVisibility()
 
-	-- Event connections
+	-- Event connections with tracking
 	MakeDraggable(togglebtn, togglebtn)
-	AddConnection(togglebtn.MouseButton1Click, ToggleVisibility)
-	AddConnection(UserInputService.InputBegan, function(value)
+	TrackConnection(AddConnection(togglebtn.MouseButton1Click, ToggleVisibility))
+	TrackConnection(AddConnection(UserInputService.InputBegan, function(value)
 		if value.KeyCode == cfgs.BindGui then
 			ToggleVisibility()
 		end
-	end)
+	end))
 
 	-- ===== ENHANCED TOP FRAME (TITLE BAR) =====
 	local top_frame = Create("Frame", {
@@ -409,7 +413,7 @@ function Library:Load(cfgs)
 			BackgroundColor3 = "maincolor",
 		},
 		BorderColor3 = Color3.fromRGB(39, 39, 42),
-		Size = UDim2.new(1, 0, 0, 45), -- Taller for better proportions
+		Size = UDim2.new(1, 0, 0, 45), -- Slightly taller
 		ZIndex = 9,
 		Parent = canvas_group,
 	}, {
@@ -420,23 +424,23 @@ function Library:Load(cfgs)
 			},
 			Thickness = 2,
 		}),
-		-- Gradient overlay for title bar
+		-- Add gradient to title bar
 		Create("UIGradient", {
 			Color = ColorSequence.new({
-				ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)),
-				ColorSequenceKeypoint.new(1, Color3.new(0.9, 0.9, 0.95))
+				ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+				ColorSequenceKeypoint.new(1, Color3.fromRGB(240, 240, 240))
 			}),
-			Rotation = 90,
+			Rotation = 45,
 			Transparency = NumberSequence.new({
-				NumberSequenceKeypoint.new(0, 0.98),
-				NumberSequenceKeypoint.new(1, 0.95)
+				NumberSequenceKeypoint.new(0, 0.95),
+				NumberSequenceKeypoint.new(1, 0.98)
 			})
 		}),
 	})
 
 	-- ===== ENHANCED TITLE LABEL =====
 	local title = Create("TextLabel", {
-		Font = Enum.Font.GothamBold, -- Bold font for better visibility
+		Font = Enum.Font.GothamBold, -- Enhanced font
 		RichText = true,
 		Text = cfgs.Title,
 		ThemeProps = {
@@ -444,10 +448,10 @@ function Library:Load(cfgs)
 			BackgroundColor3 = "maincolor",
 		},
 		BorderSizePixel = 0,
-		TextSize = 16, -- Larger text
+		TextSize = 16, -- Slightly larger
 		TextXAlignment = Enum.TextXAlignment.Left,
 		BackgroundTransparency = 1,
-		Position = UDim2.new(0, 18, 0, 0),
+		Position = UDim2.new(0, 16, 0, 0),
 		Size = UDim2.new(0, 250, 0, 45),
 		ZIndex = 10,
 		Parent = top_frame,
@@ -456,19 +460,19 @@ function Library:Load(cfgs)
 	-- ===== ENHANCED WINDOW CONTROLS =====
 	local minimizebtn = Create("TextButton", {
 		Text = "",
-		BackgroundTransparency = 0.9,
+		BackgroundTransparency = 1,
 		ThemeProps = {
 			BackgroundColor3 = "maincolor",
 		},
 		BorderSizePixel = 0,
 		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.new(1, -42, 0.5, 0),
-		Size = UDim2.new(0, 32, 0, 32),
+		Position = UDim2.new(1, -40, 0.5, 0),
+		Size = UDim2.new(0, 32, 0, 32), -- Larger buttons
 		ZIndex = 10,
 		Parent = top_frame,
 	}, {
 		Create("UICorner", {
-			CornerRadius = UDim.new(0, 8),
+			CornerRadius = UDim.new(0, 6),
 		}),
 		Create("ImageLabel", {
 			Image = "rbxassetid://15269257100",
@@ -477,7 +481,7 @@ function Library:Load(cfgs)
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			BackgroundTransparency = 1,
 			Position = UDim2.new(0.5, 0, 0.5, 0),
-			Size = UDim2.new(1, -12, 1, -12),
+			Size = UDim2.new(1, -8, 1, -8),
 			ThemeProps = {
 				ImageColor3 = "titlecolor",
 			},
@@ -488,8 +492,10 @@ function Library:Load(cfgs)
 
 	local closebtn = Create("TextButton", {
 		Text = "",
-		BackgroundTransparency = 0.9,
-		BackgroundColor3 = Color3.new(0.8, 0.2, 0.2), -- Red tint for close button
+		BackgroundTransparency = 1,
+		ThemeProps = {
+			BackgroundColor3 = "maincolor",
+		},
 		BorderSizePixel = 0,
 		AnchorPoint = Vector2.new(1, 0.5),
 		Position = UDim2.new(1, -8, 0.5, 0),
@@ -498,7 +504,7 @@ function Library:Load(cfgs)
 		Parent = top_frame,
 	}, {
 		Create("UICorner", {
-			CornerRadius = UDim.new(0, 8),
+			CornerRadius = UDim.new(0, 6),
 		}),
 		Create("ImageLabel", {
 			Image = "rbxassetid://15269329696",
@@ -507,55 +513,33 @@ function Library:Load(cfgs)
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			BackgroundTransparency = 1,
 			Position = UDim2.new(0.5, 0, 0.5, 0),
-			Size = UDim2.new(1, -12, 1, -12),
-			ImageColor3 = Color3.new(1, 1, 1),
+			Size = UDim2.new(1, -8, 1, -8),
+			ThemeProps = {
+				ImageColor3 = "titlecolor",
+			},
 			BorderSizePixel = 0,
 			ZIndex = 11,
 		}),
 	})
 
-	-- Enhanced button animations
-	local function setupButtonAnimations(button, hoverColor)
-		AddConnection(button.MouseEnter, function()
-			TweenService:Create(button, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-				BackgroundTransparency = 0.7,
-				BackgroundColor3 = hoverColor or CurrentThemeProps.primarycolor or Color3.new(0.3, 0.3, 0.3)
-			}):Play()
-		end)
-		
-		AddConnection(button.MouseLeave, function()
-			TweenService:Create(button, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-				BackgroundTransparency = 0.9,
-				BackgroundColor3 = button == closebtn and Color3.new(0.8, 0.2, 0.2) or CurrentThemeProps.maincolor
-			}):Play()
-		end)
+	-- Enhanced button hover effects
+	local function addButtonHover(button)
+		TrackConnection(AddConnection(button.MouseEnter, function()
+			TweenService:Create(button, TweenInfo.new(0.2), {BackgroundTransparency = 0.9}):Play()
+		end))
+		TrackConnection(AddConnection(button.MouseLeave, function()
+			TweenService:Create(button, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play()
+		end))
 	end
-	
-	setupButtonAnimations(minimizebtn)
-	setupButtonAnimations(closebtn, Color3.new(0.9, 0.3, 0.3))
 
-	-- Button event connections with enhanced feedback
-	AddConnection(minimizebtn.MouseButton1Click, function()
-		-- Scale animation for feedback
-		TweenService:Create(minimizebtn, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {
-			Size = UDim2.new(0, 28, 0, 28)
-		}):Play()
-		task.wait(0.1)
-		TweenService:Create(minimizebtn, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {
-			Size = UDim2.new(0, 32, 0, 32)
-		}):Play()
-		ToggleVisibility()
-	end)
-	
-	AddConnection(closebtn.MouseButton1Click, function()
-		-- Enhanced close animation with scale and fade
-		TweenService:Create(closebtn, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {
-			Size = UDim2.new(0, 28, 0, 28),
-			BackgroundColor3 = Color3.new(1, 0.4, 0.4)
-		}):Play()
-		task.wait(0.1)
-		Library:Destroy() -- Use enhanced destroy method
-	end)
+	addButtonHover(minimizebtn)
+	addButtonHover(closebtn)
+
+	-- Button event connections
+	TrackConnection(AddConnection(minimizebtn.MouseButton1Click, ToggleVisibility))
+	TrackConnection(AddConnection(closebtn.MouseButton1Click, function()
+		Library:Destroy()
+	end))
 
 	-- ===== ENHANCED TAB FRAME (SIDEBAR) =====
 	local tab_frame = Create("Frame", {
@@ -566,7 +550,7 @@ function Library:Load(cfgs)
 		BorderSizePixel = 0,
 		BorderColor3 = Color3.fromRGB(39, 39, 42),
 		Position = UDim2.new(0, 0, 0, 45),
-		Size = UDim2.new(0, 150, 1, -45), -- Wider sidebar
+		Size = UDim2.new(0, 150, 1, -45), -- Slightly wider
 		Parent = canvas_group,
 	}, {
 		Create("UIStroke", {
@@ -575,18 +559,6 @@ function Library:Load(cfgs)
 				Color = "bordercolor",
 			},
 			Thickness = 2,
-		}),
-		-- Subtle gradient for sidebar
-		Create("UIGradient", {
-			Color = ColorSequence.new({
-				ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)),
-				ColorSequenceKeypoint.new(1, Color3.new(0.95, 0.95, 1))
-			}),
-			Rotation = 0,
-			Transparency = NumberSequence.new({
-				NumberSequenceKeypoint.new(0, 0.99),
-				NumberSequenceKeypoint.new(1, 0.97)
-			})
 		}),
 	})
 
@@ -612,17 +584,14 @@ function Library:Load(cfgs)
 		}),
 		Create("UIListLayout", {
 			SortOrder = Enum.SortOrder.LayoutOrder,
-			Padding = UDim.new(0, 4), -- Better spacing
+			Padding = UDim.new(0, 4),
 		}),
 	})
 
-	-- Auto-resize canvas with smooth updates
-	AddConnection(TabHolder.UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"), function()
-		local newSize = UDim2.new(0, 0, 0, TabHolder.UIListLayout.AbsoluteContentSize.Y + 32)
-		TweenService:Create(TabHolder, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-			CanvasSize = newSize
-		}):Play()
-	end)
+	-- Auto-resize canvas
+	TrackConnection(AddConnection(TabHolder.UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"), function()
+		TabHolder.CanvasSize = UDim2.new(0, 0, 0, TabHolder.UIListLayout.AbsoluteContentSize.Y + 32)
+	end))
 
 	AddScrollAnim(TabHolder)
 
@@ -631,7 +600,7 @@ function Library:Load(cfgs)
 		Parent = canvas_group,
 	})
 
-	-- Make draggable (desktop only) with enhanced feedback
+	-- Make draggable (desktop only)
 	if not isMobile then
 		MakeDraggable(top_frame, canvas_group)
 	end
@@ -643,20 +612,7 @@ function Library:Load(cfgs)
 	local TabModule = require(Components.tab):Init(containerFolder)
 	
 	function Tabs:AddTab(title)
-		local tab = TabModule:New(title, TabHolder)
-		
-		-- Add entrance animation for new tabs
-		if tab and tab.TabBtn then
-			tab.TabBtn.Position = tab.TabBtn.Position + UDim2.new(0, -50, 0, 0)
-			tab.TabBtn.BackgroundTransparency = 1
-			
-			TweenService:Create(tab.TabBtn, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-				Position = tab.TabBtn.Position - UDim2.new(0, -50, 0, 0),
-				BackgroundTransparency = 0
-			}):Play()
-		end
-		
-		return tab
+		return TabModule:New(title, TabHolder)
 	end
 	
 	function Tabs:SelectTab(Tab)
@@ -675,37 +631,14 @@ function Library:Load(cfgs)
 
 	function Tabs:RemoveTab(tabIndex)
 		if TabModule.Tabs[tabIndex] then
-			-- Add fade out animation before removal
-			local tab = TabModule.Tabs[tabIndex]
-			if tab and tab.TabBtn then
-				TweenService:Create(tab.TabBtn, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
-					Size = UDim2.new(1, 0, 0, 0),
-					BackgroundTransparency = 1
-				}):Play()
-				
-				task.wait(0.3)
-			end
-			
 			TabModule:CleanupTab(tabIndex)
 		end
 	end
 
-	-- Auto-select first tab if available with delay
-	task.spawn(function()
-		task.wait(0.5)
-		if TabModule.TabCount > 0 then
-			Tabs:SelectTab(1)
-		end
-	end)
-
-	-- Add welcome animation
-	task.spawn(function()
-		task.wait(0.2)
-		local welcomeInfo = TweenInfo.new(1, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out)
-		TweenService:Create(canvas_group, welcomeInfo, {
-			Rotation = 0
-		}):Play()
-	end)
+	-- Auto-select first tab if available
+	if TabModule.TabCount > 0 then
+		Tabs:SelectTab(1)
+	end
 
 	return Tabs
 end
@@ -878,7 +811,6 @@ return DialogModule
 
 end)() end,
     [4] = function()local wax,script,require=ImportGlobals(4)local ImportGlobals return (function(...)local Tools = require(script.Parent.Parent.tools)
-local TweenService = game:GetService("TweenService")
 local Create = Tools.Create
 
 return function(title, desc, parent)
@@ -903,16 +835,9 @@ return function(title, desc, parent)
 		Parent = parent,
 	}, {
 		Create("UIListLayout", {
-			Padding = UDim.new(0, 8), -- Better spacing
+			Padding = UDim.new(0, 8), -- Increased padding
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}, {}),
-		-- Enhanced padding for elements
-		Create("UIPadding", {
-			PaddingBottom = UDim.new(0, 4),
-			PaddingLeft = UDim.new(0, 4),
-			PaddingRight = UDim.new(0, 4),
-			PaddingTop = UDim.new(0, 4),
-		}),
 	})
 
 	Element.topbox = Create("Frame", {
@@ -930,15 +855,15 @@ return function(title, desc, parent)
 	})
 
 	local name = Create("TextLabel", {
-		Font = Enum.Font.GothamSemibold, -- Better font weight
-		LineHeight = 1.3, -- Better line height
+		Font = Enum.Font.GothamSemibold, -- Enhanced font
+		LineHeight = 1.2,
 		RichText = true,
 		Text = title,
 		ThemeProps = {
 			TextColor3 = "titlecolor",
 			BackgroundColor3 = "maincolor",
 		},
-		TextSize = 15, -- Slightly larger
+		TextSize = 16,
 		TextTruncate = Enum.TextTruncate.AtEnd,
 		TextWrapped = true,
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -954,9 +879,9 @@ return function(title, desc, parent)
 	}, {
 		Create("UIPadding", {
 			PaddingBottom = UDim.new(0, 2),
-			PaddingLeft = UDim.new(0, 2),
-			PaddingRight = UDim.new(0, 40),
-			PaddingTop = UDim.new(0, 4),
+			PaddingLeft = UDim.new(0, 0),
+			PaddingRight = UDim.new(0, 36),
+			PaddingTop = UDim.new(0, 4), -- Increased top padding
 			Archivable = true,
 		}),
 	})
@@ -969,7 +894,7 @@ return function(title, desc, parent)
 			TextColor3 = "elementdescription",
 			BackgroundColor3 = "maincolor",
 		},
-		TextSize = 13, -- Slightly smaller for hierarchy
+		TextSize = 14,
 		TextWrapped = true,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		AutomaticSize = Enum.AutomaticSize.Y,
@@ -981,34 +906,10 @@ return function(title, desc, parent)
 		Size = UDim2.new(1, 0, 0, 0),
 		Visible = true,
 		Parent = Element.Frame,
-	}, {
-		Create("UIPadding", {
-			PaddingBottom = UDim.new(0, 2),
-			PaddingLeft = UDim.new(0, 2),
-			PaddingRight = UDim.new(0, 2),
-			PaddingTop = UDim.new(0, 0),
-		}),
-	})
-
-	-- Enhanced hover effects
-	Element.Frame.MouseEnter:Connect(function()
-		TweenService:Create(Element.Frame, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-			BackgroundTransparency = 0.98
-		}):Play()
-	end)
-
-	Element.Frame.MouseLeave:Connect(function()
-		TweenService:Create(Element.Frame, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-			BackgroundTransparency = 1
-		}):Play()
-	end)
+	}, {})
 
 	function Element:SetTitle(Set)
 		name.Text = Set
-		-- Add subtle animation for title changes
-		TweenService:Create(name, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
-			TextTransparency = 0
-		}):Play()
 	end
 
 	function Element:SetDesc(Set)
@@ -1021,26 +922,12 @@ return function(title, desc, parent)
 			description.Visible = true
 		end
 		description.Text = Set
-		
-		-- Add subtle animation for description changes
-		if description.Visible then
-			TweenService:Create(description, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
-				TextTransparency = 0
-			}):Play()
-		end
 	end
 
 	Element:SetDesc(desc)
 	Element:SetTitle(title)
 
 	function Element:Destroy()
-		-- Enhanced destroy with fade animation
-		TweenService:Create(Element.Frame, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
-			Size = UDim2.new(1, 0, 0, 0),
-			BackgroundTransparency = 1
-		}):Play()
-		
-		task.wait(0.3)
 		Element.Frame:Destroy()
 	end
 
@@ -1064,14 +951,14 @@ function Notif:Init(Gui)
         BorderColor3 = Color3.fromRGB(0,0,0),
         BorderSizePixel = 0,
         Position = UDim2.new(1, 0, 1, 0),
-        Size = UDim2.new(0, 280, 0, 120), -- Slightly larger for better visuals
+        Size = UDim2.new(0, 280, 0, 120), -- Slightly larger
         Visible = true,
         Parent = Gui,
     }, {
         Create("UIPadding", {
-            PaddingBottom = UDim.new(0, 15),
+            PaddingBottom = UDim.new(0, 16),
             PaddingLeft = UDim.new(0, 0),
-            PaddingRight = UDim.new(0, 15),
+            PaddingRight = UDim.new(0, 16),
             PaddingTop = UDim.new(0, 0),
             Archivable = true,
         }),
@@ -1079,7 +966,7 @@ function Notif:Init(Gui)
             HorizontalAlignment = Enum.HorizontalAlignment.Right,
             SortOrder = Enum.SortOrder.LayoutOrder,
             VerticalAlignment = Enum.VerticalAlignment.Bottom,
-            Padding = UDim.new(0, 10), -- Better spacing between notifications
+            Padding = UDim.new(0, 10),
         })
     })
     
@@ -1088,11 +975,11 @@ end
 function Notif:ShowNotification(titleText, descriptionText, duration)
     local main = Create("CanvasGroup", {
         AutomaticSize = Enum.AutomaticSize.Y,
-        BackgroundColor3 = Color3.fromRGB(15, 15, 18), -- Slightly lighter for better visibility
-        BackgroundTransparency = 1, -- Start transparent for animation
+        BackgroundColor3 = Color3.fromRGB(9, 9, 9),
+        BackgroundTransparency = 1,
         BorderSizePixel = 0,
         ClipsDescendants = true,
-        Size = UDim2.new(0, 320, 0, 0), -- Wider notifications
+        Size = UDim2.new(0, 320, 0, 0), -- Larger notifications
         Position = UDim2.new(1, -10, 0.5, -150),
         AnchorPoint = Vector2.new(1, 0.5),
         Visible = true,
@@ -1103,18 +990,16 @@ function Notif:ShowNotification(titleText, descriptionText, duration)
         }),
         Create("UIStroke", {
             ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-            Color = Color3.fromRGB(35, 35, 38), -- Better border color
-            Thickness = 1.5, -- Thicker border
+            Color = Color3.fromRGB(23, 23, 23),
+            Thickness = 2, -- Thicker border
         }),
-        -- Enhanced shadow effect
-        Create("ImageLabel", {
-            Image = "rbxasset://textures/ui/GuiImagePlaceholder.png",
-            ImageColor3 = Color3.new(0, 0, 0),
-            ImageTransparency = 0.6,
-            AnchorPoint = Vector2.new(0.5, 0.5),
-            Position = UDim2.new(0.5, 2, 0.5, 2),
-            Size = UDim2.new(1, 4, 1, 4),
-            ZIndex = -1,
+        -- Add gradient background
+        Create("UIGradient", {
+            Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(15, 15, 15)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(25, 25, 25))
+            }),
+            Rotation = 45,
         }),
     })
 
@@ -1126,10 +1011,10 @@ function Notif:ShowNotification(titleText, descriptionText, duration)
         Parent = main,
     }, {
         Create("UIPadding", {
-            PaddingBottom = UDim.new(0, 15),
+            PaddingBottom = UDim.new(0, 16),
             PaddingLeft = UDim.new(0, 16),
             PaddingRight = UDim.new(0, 16),
-            PaddingTop = UDim.new(0, 15),
+            PaddingTop = UDim.new(0, 16),
         }),
         Create("UIListLayout", {
             Padding = UDim.new(0, 10),
@@ -1146,7 +1031,6 @@ function Notif:ShowNotification(titleText, descriptionText, duration)
 
     local user = Create("ImageLabel", {
         Image = "rbxassetid://10723415903",
-        ImageColor3 = Color3.fromRGB(100, 200, 255), -- Enhanced icon color
         BackgroundTransparency = 1,
         Size = UDim2.new(0, 20, 0, 20), -- Slightly larger icon
         Visible = true,
@@ -1154,11 +1038,11 @@ function Notif:ShowNotification(titleText, descriptionText, duration)
     })
 
     local title = Create("TextLabel", {
-        Font = Enum.Font.GothamBold, -- Bold for better hierarchy
+        Font = Enum.Font.GothamBold, -- Enhanced font
         LineHeight = 1.2,
         RichText = true,
-        TextColor3 = Color3.fromRGB(240, 240, 245), -- Better contrast
-        TextSize = 16,
+        TextColor3 = Color3.fromRGB(255, 255, 255),
+        TextSize = 18,
         TextWrapped = true,
         TextXAlignment = Enum.TextXAlignment.Left,
         TextYAlignment = Enum.TextYAlignment.Top,
@@ -1176,8 +1060,8 @@ function Notif:ShowNotification(titleText, descriptionText, duration)
     local description = Create("TextLabel", {
         Font = Enum.Font.Gotham,
         RichText = true,
-        TextColor3 = Color3.fromRGB(200, 200, 210), -- Better description color
-        TextSize = 14,
+        TextColor3 = Color3.fromRGB(200, 200, 200),
+        TextSize = 15,
         TextWrapped = true,
         TextXAlignment = Enum.TextXAlignment.Left,
         TextYAlignment = Enum.TextYAlignment.Top,
@@ -1203,7 +1087,7 @@ function Notif:ShowNotification(titleText, descriptionText, duration)
     })
 
     local progressindicator = Create("Frame", {
-        BackgroundColor3 = Color3.fromRGB(100, 200, 255), -- Better progress color
+        BackgroundColor3 = Color3.fromRGB(100, 150, 255), -- Better color
         Size = UDim2.new(1, 0, 0, 3),
         Visible = true,
         Parent = progress,
@@ -1211,79 +1095,58 @@ function Notif:ShowNotification(titleText, descriptionText, duration)
         Create("UICorner", {
             CornerRadius = UDim.new(1, 0),
         }),
-        -- Subtle glow effect for progress
+        -- Add glow effect
         Create("UIGradient", {
             Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0, Color3.fromRGB(120, 220, 255)),
-                ColorSequenceKeypoint.new(1, Color3.fromRGB(80, 180, 255))
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(100, 150, 255)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(150, 200, 255))
             }),
-            Rotation = 0,
         }),
     })
 
-    -- Enhanced entrance animation with slide and scale
-    main.Position = main.Position + UDim2.new(0, 100, 0, 0)
-    main.Size = UDim2.new(0, 300, 0, 0)
-    
-    -- Slide in animation
-    local slideInfo = TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-    local slideIn = TweenService:Create(main, slideInfo, {
-        Position = main.Position - UDim2.new(0, 100, 0, 0),
-        BackgroundTransparency = 0.1
+    -- Enhanced slide-in animation
+    main.Position = UDim2.new(1, 50, 0.5, -150)
+    main.GroupTransparency = 1
+
+    local slideIn = TweenService:Create(main, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        Position = UDim2.new(1, -10, 0.5, -150),
+        GroupTransparency = 0
     })
     slideIn:Play()
 
-    -- Content fade in with stagger
-    task.wait(0.2)
-    local fadeInTweenInfo = TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-    
-    local fadeInTweenTitle = TweenService:Create(title, fadeInTweenInfo, {TextTransparency = 0})
-    fadeInTweenTitle:Play()
-
-    task.wait(0.1)
-    local fadeInTweenDescription = TweenService:Create(description, fadeInTweenInfo, {TextTransparency = 0})
-    fadeInTweenDescription:Play()
-
-    task.wait(0.1)
-    local fadeInTweenUser = TweenService:Create(user, fadeInTweenInfo, {ImageTransparency = 0})
-    fadeInTweenUser:Play()
-
-    -- Enhanced progress animation with easing
+    -- Progress animation
     local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
     local tween = TweenService:Create(progressindicator, tweenInfo, {Size = UDim2.new(0, 0, 0, 3)})
     tween:Play()
 
-    -- Enhanced exit animation
-    tween.Completed:Connect(function()
-        local exitInfo = TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-        local exitTween = TweenService:Create(main, exitInfo, {
-            Position = main.Position + UDim2.new(0, 50, 0, -20),
-            Size = UDim2.new(0, 280, 0, 0),
-            BackgroundTransparency = 1
-        })
-        exitTween:Play()
-        
-        exitTween.Completed:Connect(function()
-            main:Destroy()
-        end)
-    end)
-
-    -- Add click to dismiss functionality
-    local dismissButton = Create("TextButton", {
+    -- Click to dismiss
+    local dismissBtn = Create("TextButton", {
         Size = UDim2.new(1, 0, 1, 0),
         BackgroundTransparency = 1,
         Text = "",
         Parent = main,
-        ZIndex = 5,
+        ZIndex = 50,
     })
-    
-    dismissButton.MouseButton1Click:Connect(function()
-        local quickExit = TweenService:Create(main, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-            Position = main.Position + UDim2.new(0, 100, 0, 0),
-            BackgroundTransparency = 1
+
+    AddConnection(dismissBtn.MouseButton1Click, function()
+        local slideOut = TweenService:Create(main, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+            Position = UDim2.new(1, 50, 0.5, -150),
+            GroupTransparency = 1
         })
-        quickExit:Play()
-        quickExit.Completed:Connect(function()
+        slideOut:Play()
+        slideOut.Completed:Connect(function()
+            main:Destroy()
+        end)
+    end)
+
+    -- Auto-dismiss after duration
+    tween.Completed:Connect(function()
+        local slideOut = TweenService:Create(main, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+            Position = UDim2.new(1, 50, 0.5, -150),
+            GroupTransparency = 1
+        })
+        slideOut:Play()
+        slideOut.Completed:Connect(function()
             main:Destroy()
         end)
     end)
@@ -1304,7 +1167,7 @@ return function(cfgs, Parent)
 	cfgs.Description = cfgs.Description or nil
 	cfgs.Defualt  = cfgs.Defualt or false
 	cfgs.Locked = cfgs.Locked or false
-	cfgs.TitleTextSize = cfgs.TitleTextSize or 14
+	cfgs.TitleTextSize = cfgs.TitleTextSize or 15 -- Slightly larger
 
 	local Section = {}
 
@@ -1323,8 +1186,8 @@ return function(cfgs, Parent)
 	}, {
 		Create("UIPadding", {
 			PaddingBottom = UDim.new(0, 8),
-			PaddingLeft = UDim.new(0, 8),
-			PaddingRight = UDim.new(0, 8),
+			PaddingLeft = UDim.new(0, 16),
+			PaddingRight = UDim.new(0, 16),
 			PaddingTop = UDim.new(0, 8),
 			Archivable = true,
 		}),
@@ -1335,29 +1198,29 @@ return function(cfgs, Parent)
 			},
 			Enabled = true,
 			LineJoinMode = Enum.LineJoinMode.Round,
-			Thickness = 1.5, -- Thicker border
+			Thickness = 2, -- Thicker border
 			Archivable = true,
 		}),
 		Create("UICorner", {
 			CornerRadius = UDim.new(0, 8), -- More rounded
 		}),
-		-- ===== AUTOMATIC BEAUTIFUL GRADIENT =====
+		Create("UIListLayout", {
+			Padding = UDim.new(0, 8),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}),
+		-- ===== AUTOMATIC GRADIENT FOR ALL SECTIONS =====
 		Create("UIGradient", {
 			Color = ColorSequence.new({
 				ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
-				ColorSequenceKeypoint.new(0.5, Color3.fromRGB(245, 250, 255)),
-				ColorSequenceKeypoint.new(1, Color3.fromRGB(235, 245, 255))
+				ColorSequenceKeypoint.new(0.5, Color3.fromRGB(240, 245, 255)),
+				ColorSequenceKeypoint.new(1, Color3.fromRGB(230, 240, 255))
 			}),
-			Rotation = 45, -- Diagonal gradient
+			Rotation = 45,
 			Transparency = NumberSequence.new({
-				NumberSequenceKeypoint.new(0, 0.98),
-				NumberSequenceKeypoint.new(0.5, 0.96),
-				NumberSequenceKeypoint.new(1, 0.99)
+				NumberSequenceKeypoint.new(0, 0.97),
+				NumberSequenceKeypoint.new(0.5, 0.95),
+				NumberSequenceKeypoint.new(1, 0.98)
 			})
-		}),
-		Create("UIListLayout", {
-			Padding = UDim.new(0, 6),
-			SortOrder = Enum.SortOrder.LayoutOrder,
 		}),
 	})
 
@@ -1375,12 +1238,11 @@ return function(cfgs, Parent)
 		Parent = Section.SectionFrame,
 	}, {
 		Create("UIListLayout", {
-			Padding = UDim.new(0, 4), -- Better spacing
+			Padding = UDim.new(0, 4),
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}, {}),
 	})
 
-	-- Enhanced chevron with better styling
 	local chevronIcon = Create("ImageButton", {
 		ThemeProps = {
 			ImageColor3 = "titlecolor",
@@ -1388,29 +1250,25 @@ return function(cfgs, Parent)
 		Image = "rbxassetid://15269180996",
 		ImageRectOffset = Vector2.new(0, 257),
 		ImageRectSize = Vector2.new(256, 256),
-		BackgroundTransparency = 0.95,
+		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		Size = UDim2.new(0, 28, 0, 28), -- Larger click area
+		Size = UDim2.new(0, 26, 0, 26), -- Slightly larger
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, 0, 0, 0),
 		Rotation = 90,
 		Name = "chevron-down",
 		ZIndex = 99,
-	}, {
-		Create("UICorner", {
-			CornerRadius = UDim.new(0, 6),
-		}),
 	})
 	
 	local name = Create("TextLabel", {
-		Font = Enum.Font.GothamBold, -- Bold for section titles
+		Font = Enum.Font.GothamBold, -- Enhanced font
 		LineHeight = 1.2,
 		RichText = true,
 		ThemeProps = {
 			TextColor3 = "titlecolor",
 			BackgroundColor3 = "maincolor",
 		},
-		TextSize = 15, -- Slightly larger
+		TextSize = cfgs.TitleTextSize,
 		TextTruncate = Enum.TextTruncate.AtEnd,
 		TextWrapped = true,
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -1423,15 +1281,9 @@ return function(cfgs, Parent)
 		Visible = false,
 		Parent = topbox,
 	}, {
-		chevronIcon,
-		Create("UIPadding", {
-			PaddingBottom = UDim.new(0, 2),
-			PaddingLeft = UDim.new(0, 4),
-			PaddingRight = UDim.new(0, 36),
-			PaddingTop = UDim.new(0, 4),
-		}),
+		chevronIcon
 	})
-	
+
 	if cfgs.description ~= nil and cfgs.description ~= "" then
 		local description = Create("TextLabel", {
 			Font = Enum.Font.Gotham,
@@ -1440,7 +1292,7 @@ return function(cfgs, Parent)
 				TextColor3 = "descriptioncolor",
 				BackgroundColor3 = "maincolor",
 			},
-			TextSize = 13, -- Slightly smaller for hierarchy
+			TextSize = 14,
 			TextWrapped = true,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			AutomaticSize = Enum.AutomaticSize.Y,
@@ -1452,18 +1304,13 @@ return function(cfgs, Parent)
 			Size = UDim2.new(1, 0, 0, 16),
 			Visible = true,
 			Parent = topbox,
-		}, {
-			Create("UIPadding", {
-				PaddingLeft = UDim.new(0, 4),
-				PaddingRight = UDim.new(0, 4),
-			}),
-		})
+		}, {})
 		description.Text = cfgs.Description or ""
 		description.Visible = cfgs.Description ~= nil
 	end
 
 	if cfgs.Title ~= nil and cfgs.Title ~= "" then
-		name.Size = UDim2.new(1, 0, 0, 20) -- Taller for better proportions
+		name.Size = UDim2.new(1, 0, 0, 18) -- Slightly taller
 		name.Text = cfgs.Title
 		name.TextSize = cfgs.TitleTextSize
 		name.Visible = true
@@ -1483,7 +1330,7 @@ return function(cfgs, Parent)
 		Parent = Section.SectionFrame,
 	}, {
 		Create("UIListLayout", {
-			Padding = UDim.new(0, 8), -- Better spacing between elements
+			Padding = UDim.new(0, 12),
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}, {}),
 		Create("UIPadding", {
@@ -1499,74 +1346,44 @@ return function(cfgs, Parent)
 	if cfgs.Defualt == true then
 		chevronIcon.Rotation = 0
 	end
-	
-	-- Enhanced toggle function with better animations
+
 	local function toggleSection()
 		isExpanded = not isExpanded
 		local targetRotation = isExpanded and 0 or 90
 		
-		-- Enhanced chevron animation with bounce
+		-- Enhanced chevron rotation with bounce
 		TweenService:Create(chevronIcon, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
 			Rotation = targetRotation
 		}):Play()
 		
-		-- Enhanced hover effect during animation
-		TweenService:Create(chevronIcon, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-			BackgroundTransparency = isExpanded and 0.9 or 0.95
-		}):Play()
-		
-		-- Enhanced container animation with smooth easing
+		-- Enhanced section container animation
 		local targetSize = isExpanded and UDim2.new(1, 0, 0, Section.SectionContainer.UIListLayout.AbsoluteContentSize.Y + 20) or UDim2.new(1, 0, 0, 0)
 		TweenService:Create(Section.SectionContainer, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
 			Size = targetSize
 		}):Play()
 	end
-	
-	-- Enhanced hover effects for chevron
-	chevronIcon.MouseEnter:Connect(function()
-		TweenService:Create(chevronIcon, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-			BackgroundTransparency = 0.85,
-			Size = UDim2.new(0, 30, 0, 30)
-		}):Play()
-	end)
-	
-	chevronIcon.MouseLeave:Connect(function()
-		TweenService:Create(chevronIcon, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-			BackgroundTransparency = 0.95,
-			Size = UDim2.new(0, 28, 0, 28)
-		}):Play()
-	end)
-	
+
 	if cfgs.Locked == false then
 		AddConnection(topbox.MouseButton1Click, toggleSection)
 		AddConnection(chevronIcon.MouseButton1Click, toggleSection)
+		
+		-- Add hover effects
+		AddConnection(topbox.MouseEnter, function()
+			TweenService:Create(chevronIcon, TweenInfo.new(0.2), {ImageTransparency = 0.3}):Play()
+		end)
+		AddConnection(topbox.MouseLeave, function()
+			TweenService:Create(chevronIcon, TweenInfo.new(0.2), {ImageTransparency = 0}):Play()
+		end)
 	end
-	
+
 	if cfgs.Locked == true then
 		topbox:Destroy()
-		-- When locked, show the section expanded by default
-		Section.SectionContainer.Size = UDim2.new(1, 0, 0, Section.SectionContainer.UIListLayout.AbsoluteContentSize.Y + 20)
 	end
 	
-	-- Enhanced content size monitoring with smooth updates
 	AddConnection(Section.SectionContainer.UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"), function()
 		if isExpanded then
-			local newSize = UDim2.new(1, 0, 0, Section.SectionContainer.UIListLayout.AbsoluteContentSize.Y + 20)
-			TweenService:Create(Section.SectionContainer, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-				Size = newSize
-			}):Play()
+			Section.SectionContainer.Size = UDim2.new(1, 0, 0, Section.SectionContainer.UIListLayout.AbsoluteContentSize.Y + 20)
 		end
-	end)
-
-	-- Add entrance animation for the section
-	Section.SectionFrame.Size = UDim2.new(1, 0, 0, 0)
-	Section.SectionFrame.BackgroundTransparency = 1
-	
-	task.spawn(function()
-		task.wait(math.random() * 0.1) -- Slight delay for staggered effect
-		TweenService:Create(Section.SectionFrame, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-			BackgroundTransparency = 1
-		}):Play()
 	end)
 
 	return Section
@@ -1596,7 +1413,7 @@ local TabModule = {
 	Containers = {},
 	SelectedTab = 0,
 	TabCount = 0,
-	SearchContainers = {}, -- Track search containers separately
+	SearchContainers = {},
 }
 
 function TabModule:Init(Window)
@@ -1604,15 +1421,12 @@ function TabModule:Init(Window)
 	return TabModule
 end
 
--- Add cleanup function to properly remove search containers
 function TabModule:CleanupTab(TabIndex)
-	-- Remove search container if it exists
 	if TabModule.SearchContainers[TabIndex] then
 		TabModule.SearchContainers[TabIndex]:Destroy()
 		TabModule.SearchContainers[TabIndex] = nil
 	end
 	
-	-- Remove other references
 	if TabModule.Containers[TabIndex] then
 		TabModule.Containers[TabIndex]:Destroy()
 		TabModule.Containers[TabIndex] = nil
@@ -1640,7 +1454,7 @@ function TabModule:New(Title, Parent)
 	Tab.TabBtn = Create("TextButton", {
 		Text = "",
 		BackgroundTransparency = 1,
-		Size = UDim2.new(1, 0, 0, 36), -- Taller tabs
+		Size = UDim2.new(1, 0, 0, 36), -- Slightly taller
 		Parent = Parent,
 		ThemeProps = {
 			BackgroundColor3 = "maincolor",
@@ -1648,13 +1462,13 @@ function TabModule:New(Title, Parent)
 		BorderSizePixel = 0,
 	}, {
 		Create("UICorner", {
-			CornerRadius = UDim.new(0, 8), -- Rounded tabs
+			CornerRadius = UDim.new(0, 6),
 		}),
 		Create("TextLabel", {
 			Name = "Title",
-			Font = Enum.Font.GothamSemibold, -- Better font weight
+			Font = Enum.Font.GothamSemibold, -- Enhanced font
 			TextColor3 = Color3.fromRGB(63, 63, 63),
-			TextSize = 14,
+			TextSize = 15, -- Slightly larger
 			ThemeProps = {
 				BackgroundColor3 = "maincolor",
 			},
@@ -1662,41 +1476,36 @@ function TabModule:New(Title, Parent)
 			TextXAlignment = Enum.TextXAlignment.Left,
 			AnchorPoint = Vector2.new(0, 0.5),
 			BackgroundTransparency = 1,
-			Position = UDim2.new(0, 18, 0.5, 0), -- Better spacing
+			Position = UDim2.new(0, 16, 0.5, 0),
 			Size = UDim2.new(0.8, 0, 0.9, 0),
 			Text = Title,
 		}),
 		Create("Frame", {
 			Name = "Line",
 			BackgroundColor3 = Color3.fromRGB(29, 29, 29),
-			Position = UDim2.new(0, 6, 0, 0), -- Better positioning
+			Position = UDim2.new(0, 6, 0, 0),
 			Size = UDim2.new(0, 3, 1, 0), -- Thicker line
 			BorderSizePixel = 0,
 		}, {
 			Create("UICorner", {
-				CornerRadius = UDim.new(1, 0), -- Rounded line
+				CornerRadius = UDim.new(1, 0),
 			}),
 		}),
 	})
 
 	-- Enhanced tab hover effects
-	Tab.TabBtn.MouseEnter:Connect(function()
+	AddConnection(Tab.TabBtn.MouseEnter, function()
 		if not Tab.Selected then
-			TweenService:Create(Tab.TabBtn, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-				BackgroundTransparency = 0.95
-			}):Play()
+			TweenService:Create(Tab.TabBtn, TweenInfo.new(0.2), {BackgroundTransparency = 0.95}):Play()
+		end
+	end)
+	AddConnection(Tab.TabBtn.MouseLeave, function()
+		if not Tab.Selected then
+			TweenService:Create(Tab.TabBtn, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play()
 		end
 	end)
 
-	Tab.TabBtn.MouseLeave:Connect(function()
-		if not Tab.Selected then
-			TweenService:Create(Tab.TabBtn, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-				BackgroundTransparency = 1
-			}):Play()
-		end
-	end)
-
-	-- Check if search container already exists for this position and remove it
+	-- Enhanced search container
 	local existingSearchContainer = nil
 	for _, child in ipairs(Parent:GetChildren()) do
 		if child.Name == "SearchContainer_" .. TabIndex then
@@ -1709,17 +1518,16 @@ function TabModule:New(Title, Parent)
 		existingSearchContainer:Destroy()
 	end
 
-	-- Enhanced search container with better styling
 	Tab.SearchContainer = Create("Frame", {
 		Name = "SearchContainer_" .. TabIndex,
-		Size = UDim2.new(1, 0, 0, 40), -- Taller for better proportions
+		Size = UDim2.new(1, 0, 0, 40), -- Slightly taller
 		BackgroundTransparency = 1,
 		Parent = Parent,
-		LayoutOrder = TabIndex + 100, -- Ensure it appears after the tab button
+		LayoutOrder = TabIndex + 100,
 		ThemeProps = {
 			BackgroundColor3 = "maincolor",
 		},
-		Visible = false, -- Initially hidden
+		Visible = false,
 	})
 
 	local SearchBox = Create("TextBox", {
@@ -1729,12 +1537,11 @@ function TabModule:New(Title, Parent)
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Text = "",
 		Font = Enum.Font.Gotham,
-		TextSize = 13,
-		BackgroundTransparency = 0.95,
+		TextSize = 14,
+		BackgroundTransparency = 1,
 		ThemeProps = {
 			TextColor3 = "titlecolor",
 			PlaceholderColor3 = "descriptioncolor",
-			BackgroundColor3 = "maincolor",
 		},
 		Parent = Tab.SearchContainer,
 		ClearTextOnFocus = false,
@@ -1748,25 +1555,12 @@ function TabModule:New(Title, Parent)
 			ThemeProps = {
 				Color = "bordercolor",
 			},
-			Thickness = 1.5,
+			Thickness = 2,
 		}),
 		Create("UICorner", {
-			CornerRadius = UDim.new(0, 8),
+			CornerRadius = UDim.new(0, 6),
 		}),
 	})
-
-	-- Enhanced search box animations
-	SearchBox.Focused:Connect(function()
-		TweenService:Create(SearchBox, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-			BackgroundTransparency = 0.9
-		}):Play()
-	end)
-
-	SearchBox.FocusLost:Connect(function()
-		TweenService:Create(SearchBox, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-			BackgroundTransparency = 0.95
-		}):Play()
-	end)
 
 	Tab.Container = Create("ScrollingFrame", {
 		CanvasSize = UDim2.new(0, 0, 0, 0),
@@ -1774,7 +1568,7 @@ function TabModule:New(Title, Parent)
 			ScrollBarImageColor3 = "scrollocolor",
 			BackgroundColor3 = "maincolor",
 		},
-		ScrollBarThickness = 3, -- Thicker scrollbar
+		ScrollBarThickness = 3,
 		ScrollBarImageTransparency = 1,
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
@@ -1785,26 +1579,23 @@ function TabModule:New(Title, Parent)
 	}, {
 		Create("UIListLayout", {
 			SortOrder = Enum.SortOrder.LayoutOrder,
-			Padding = UDim.new(0, 8), -- Better spacing between sections
+			Padding = UDim.new(0, 8), -- Increased padding
 		}),
 		Create("UIPadding", {
-			PaddingBottom = UDim.new(0, 12),
-			PaddingLeft = UDim.new(0, 12),
-			PaddingRight = UDim.new(0, 12),
-			PaddingTop = UDim.new(0, 12),
+			PaddingTop = UDim.new(0, 8),
+			PaddingBottom = UDim.new(0, 8),
+			PaddingLeft = UDim.new(0, 8),
+			PaddingRight = UDim.new(0, 8),
 		}),
 	})
 
 	AddScrollAnim(Tab.Container)
 
 	AddConnection(Tab.Container.UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"), function()
-		local newSize = UDim2.new(0, 0, 0, Tab.Container.UIListLayout.AbsoluteContentSize.Y + 32)
-		TweenService:Create(Tab.Container, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-			CanvasSize = newSize
-		}):Play()
+		Tab.Container.CanvasSize = UDim2.new(0, 0, 0, Tab.Container.UIListLayout.AbsoluteContentSize.Y + 32)
 	end)
 
-	-- Function to filter elements based on search text with enhanced logic
+	-- Enhanced search functionality
 	local function searchInElement(element, searchText)
 		local title = element:FindFirstChild("Title", true)
 		local desc = element:FindFirstChild("Description", true)
@@ -1838,7 +1629,6 @@ function TabModule:New(Title, Parent)
 			return
 		end
 
-		-- Enhanced search with smooth animations
 		for _, child in ipairs(Tab.Container:GetChildren()) do
 			if child.Name == "Section" then
 				local sectionContainer = child:FindFirstChild("SectionContainer")
@@ -1849,36 +1639,14 @@ function TabModule:New(Title, Parent)
 					for _, element in ipairs(sectionContainer:GetChildren()) do
 						if element.Name == "Element" then
 							local elementVisible = searchInElement(element, searchText)
-							
-							-- Smooth visibility transitions
-							if elementVisible or searchText == "" then
-								element.Visible = true
-								TweenService:Create(element, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-									Size = element.Size,
-									BackgroundTransparency = element.BackgroundTransparency
-								}):Play()
-							else
-								TweenService:Create(element, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-									Size = UDim2.new(1, 0, 0, 0),
-									BackgroundTransparency = 1
-								}):Play()
-								
-								task.wait(0.2)
-								element.Visible = false
-							end
-							
+							element.Visible = elementVisible or searchText == ""
 							if elementVisible then
 								visible = true
 							end
 						end
 					end
 
-					-- Smooth section visibility
-					if visible or searchText == "" then
-						child.Visible = true
-					else
-						child.Visible = false
-					end
+					child.Visible = visible or searchText == ""
 					debugLog("Section visibility:", child.Visible)
 				end
 			elseif child.Name == "Element" then
@@ -1889,7 +1657,6 @@ function TabModule:New(Title, Parent)
 		end
 	end
 
-	-- Update search when tab is selected
 	AddConnection(Tab.Container:GetPropertyChangedSignal("Visible"), function()
 		if Tab.Container.Visible then
 			updateSearch()
@@ -1931,7 +1698,7 @@ function TabModule:New(Title, Parent)
 				Parent = SectionFrame.SectionContainer,
 			}, {
 				Create("UIListLayout", {
-					Padding = UDim.new(0, 8), -- Better spacing
+					Padding = UDim.new(0, 8),
 					Wraps = true,
 					FillDirection = Enum.FillDirection.Horizontal,
 					SortOrder = Enum.SortOrder.LayoutOrder,
@@ -1948,7 +1715,6 @@ function TabModule:New(Title, Parent)
 		return Section
 	end
 
-	-- Add cleanup when tab is destroyed
 	function Tab:Destroy()
 		TabModule:CleanupTab(TabIndex)
 	end
@@ -1976,10 +1742,8 @@ function TabModule:SelectTab(Tab)
             TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut),
             { BackgroundTransparency = 1 }
         ):Play()
-        
         v.Selected = false
         
-        -- Hide search container for non-selected tabs
         if TabModule.SearchContainers[i] then
             TabModule.SearchContainers[i].Visible = false
         end
@@ -1987,54 +1751,36 @@ function TabModule:SelectTab(Tab)
 
     local selectedTab = TabModule.Tabs[Tab]
     if selectedTab then
+        selectedTab.Selected = true
+        
         -- Enhanced tab selection animation
         TweenService:Create(
             selectedTab.TabBtn.Title,
-            TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+            TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut),
             { TextColor3 = CurrentThemeProps.onTextBtn }
         ):Play()
         TweenService:Create(
             selectedTab.TabBtn.Line,
-            TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+            TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut),
             { BackgroundColor3 = CurrentThemeProps.onBgLineBtn }
         ):Play()
         TweenService:Create(
             selectedTab.TabBtn,
-            TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-            { BackgroundTransparency = 0.92 }
+            TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut),
+            { BackgroundTransparency = 0.9 }
         ):Play()
-
-        selectedTab.Selected = true
 
         task.spawn(function()
             for _, Container in pairs(TabModule.Containers) do
                 Container.Visible = false
             end
 
-            -- Show search container for selected tab only
             if TabModule.SearchContainers[Tab] then
                 TabModule.SearchContainers[Tab].Visible = true
-                
-                -- Animate search container appearance
-                local searchContainer = TabModule.SearchContainers[Tab]
-                searchContainer.Position = UDim2.new(0, -50, 0, 0)
-                TweenService:Create(searchContainer, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-                    Position = UDim2.new(0, 0, 0, 0)
-                }):Play()
             end
 
             if TabModule.Containers[Tab] then
                 TabModule.Containers[Tab].Visible = true
-                
-                -- Animate container appearance
-                local container = TabModule.Containers[Tab]
-                container.Position = container.Position + UDim2.new(0, 30, 0, 0)
-                container.Size = container.Size * 0.95
-                
-                TweenService:Create(container, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-                    Position = container.Position - UDim2.new(0, 30, 0, 0),
-                    Size = container.Size / 0.95
-                }):Play()
             end
         end)
     end
@@ -2052,7 +1798,6 @@ end
 return Elements
 end)() end,
     [9] = function()local wax,script,require=ImportGlobals(9)local ImportGlobals return (function(...)local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
 
 local Tools = require(script.Parent.Parent.tools)
 local Components = script.Parent.Parent.components
@@ -2092,20 +1837,20 @@ function Element:New(Idx, Config)
 	local BindFrame = require(Components.element)(Config.Title, Config.Description, self.Container)
 
 	local value = Create("TextLabel", {
-		Font = Enum.Font.GothamSemibold, -- Better font weight
+		Font = Enum.Font.GothamSemibold, -- Enhanced font
 		RichText = true,
 		Text = "",
 		ThemeProps = {
 			BackgroundColor3 = "bordercolor",
 			TextColor3 = "titlecolor",
 		},
-		TextSize = 13,
+		TextSize = 14,
 		AnchorPoint = Vector2.new(1, 0),
 		AutomaticSize = Enum.AutomaticSize.X,
 		BorderColor3 = Color3.fromRGB(0, 0, 0),
 		BorderSizePixel = 0,
 		Position = UDim2.new(1, 0, 0, 0),
-		Size = UDim2.new(0, 0, 0, 18), -- Taller for better proportions
+		Size = UDim2.new(0, 0, 0, 18), -- Slightly taller
 		Visible = true,
 		Parent = BindFrame.topbox,
 	}, {
@@ -2120,29 +1865,15 @@ function Element:New(Idx, Config)
 			CornerRadius = UDim.new(0, 6), -- More rounded
 			Archivable = true,
 		}),
-		Create("UIStroke", {
-			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-			ThemeProps = {
-				Color = "bordercolor",
-			},
-			Thickness = 1,
-		}),
 	})
 
-	-- Enhanced visual feedback for binding state
 	AddConnection(BindFrame.Frame.InputEnded, function(Input)
 		if Input.UserInputType == Enum.UserInputType.MouseButton1 then
 			if Bind.Binding then
 				return
 			end
 			Bind.Binding = true
-			value.Text = "⏱️ Listening..."
-			
-			-- Enhanced binding animation
-			TweenService:Create(value, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
-				Size = UDim2.new(0, 0, 0, 20),
-				BackgroundTransparency = 0.5
-			}):Play()
+			value.Text = "..."
 		end
 	end)
 
@@ -2150,14 +1881,7 @@ function Element:New(Idx, Config)
 		Bind.Binding = false
 		Bind.Value = Key or Bind.Value
 		Bind.Value = Bind.Value.Name or Bind.Value
-		value.Text = "🎯 " .. Bind.Value
-		
-		-- Enhanced set animation
-		TweenService:Create(value, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-			Size = UDim2.new(0, 0, 0, 18),
-			BackgroundTransparency = 0
-		}):Play()
-		
+		value.Text = Bind.Value
 		Config.ChangeCallback(Bind.Value)
 	end
 
@@ -2168,20 +1892,8 @@ function Element:New(Idx, Config)
 		if (Input.KeyCode.Name == Bind.Value or Input.UserInputType.Name == Bind.Value) and not Bind.Binding then
 			if Config.Hold then
 				Holding = true
-				-- Visual feedback for hold
-				TweenService:Create(value, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {
-					BackgroundTransparency = 0.3
-				}):Play()
 				Config.Callback(Holding)
 			else
-				-- Visual feedback for tap
-				TweenService:Create(value, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {
-					Size = UDim2.new(0, 0, 0, 20)
-				}):Play()
-				task.wait(0.1)
-				TweenService:Create(value, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {
-					Size = UDim2.new(0, 0, 0, 18)
-				}):Play()
 				Config.Callback()
 			end
 		elseif Bind.Binding then
@@ -2200,10 +1912,6 @@ function Element:New(Idx, Config)
 		if Input.KeyCode.Name == Bind.Value or Input.UserInputType.Name == Bind.Value then
 			if Config.Hold and Holding then
 				Holding = false
-				-- Reset visual feedback
-				TweenService:Create(value, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-					BackgroundTransparency = 0
-				}):Play()
 				Config.Callback(Holding)
 			end
 		end
@@ -2239,11 +1947,9 @@ local ButtonStyles = {
 		BorderSizePixel = 0,
 		HoverConfig = {
 			BackgroundTransparency = 0.1,
-			Size = UDim2.new(1, 2, 1, 2), -- Slight scale on hover
 		},
 		FocusConfig = {
 			BackgroundTransparency = 0.2,
-			Size = UDim2.new(1, -2, 1, -2), -- Scale down on press
 		},
 	},
 	Ghost = {
@@ -2253,12 +1959,10 @@ local ButtonStyles = {
 		BorderColor3 = Color3.fromRGB(0, 0, 0),
 		BorderSizePixel = 0,
 		HoverConfig = {
-			BackgroundTransparency = 0.95,
-			Size = UDim2.new(1, 2, 1, 2),
+			BackgroundTransparency = 0.98,
 		},
 		FocusConfig = {
-			BackgroundTransparency = 0.9,
-			Size = UDim2.new(1, -1, 1, -1),
+			BackgroundTransparency = 0.94,
 		},
 	},
 	Outline = {
@@ -2268,40 +1972,30 @@ local ButtonStyles = {
 		BorderColor3 = Color3.fromRGB(0, 0, 0),
 		BorderSizePixel = 1,
 		UIStroke = {
-			Color = Color3.fromRGB(60, 60, 65), -- Better border color
-			Thickness = 1.5,
+			Color = Color3.fromRGB(39, 39, 42),
+			Thickness = 1,
 		},
 		HoverConfig = {
-			BackgroundTransparency = 0.92,
-			Size = UDim2.new(1, 2, 1, 2),
+			BackgroundTransparency = 0.94,
 		},
 		FocusConfig = {
-			BackgroundTransparency = 0.85,
-			Size = UDim2.new(1, -1, 1, -1),
+			BackgroundTransparency = 0.98,
 		},
 	},
 }
 
-local function ApplyTweens(button, config, uiStroke, originalSize)
-	local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out) -- Enhanced easing
+local function ApplyTweens(button, config, uiStroke)
+	local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out) -- Enhanced timing
 	local tweenGoals = {}
 
 	for property, value in pairs(config) do
-		if property ~= "UIStroke" and property ~= "Size" then
+		if property ~= "UIStroke" then
 			tweenGoals[property] = value
 		end
 	end
 
 	local tween = TweenService:Create(button, tweenInfo, tweenGoals)
 	tween:Play()
-
-	-- Handle size animation separately with original size reference
-	if config.Size then
-		local sizeTween = TweenService:Create(button, tweenInfo, {
-			Size = originalSize and (originalSize + (config.Size - UDim2.new(1, 0, 1, 0))) or config.Size
-		})
-		sizeTween:Play()
-	end
 
 	if uiStroke and config.UIStroke then
 		local strokeTweenGoals = {}
@@ -2318,11 +2012,11 @@ local function CreateButton(style, text, parent)
 	assert(config, "Invalid button style: " .. style)
 
 	local button = Create("TextButton", {
-		Font = Enum.Font.GothamSemibold, -- Better font weight
+		Font = Enum.Font.GothamSemibold, -- Enhanced font
 		LineHeight = 1.25,
 		Text = text,
 		TextColor3 = config.TextColor3,
-		TextSize = 14,
+		TextSize = 15, -- Slightly larger
 		AutomaticSize = Enum.AutomaticSize.XY,
 		BackgroundColor3 = config.BackgroundColor3,
 		BackgroundTransparency = config.BackgroundTransparency,
@@ -2332,9 +2026,9 @@ local function CreateButton(style, text, parent)
 		Parent = parent,
 	}, {
 		Create("UIPadding", {
-			PaddingBottom = UDim.new(0, 10), -- Better padding
-			PaddingLeft = UDim.new(0, 18),
-			PaddingRight = UDim.new(0, 18),
+			PaddingBottom = UDim.new(0, 10), -- Increased padding
+			PaddingLeft = UDim.new(0, 20),
+			PaddingRight = UDim.new(0, 20),
 			PaddingTop = UDim.new(0, 10),
 			Archivable = true,
 		}),
@@ -2344,10 +2038,8 @@ local function CreateButton(style, text, parent)
 		}),
 	})
 
-	local originalSize = button.Size
-
 	if config.UIStroke then
-		local uiStroke = Create("UIStroke", {
+		Create("UIStroke", {
 			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 			Color = config.UIStroke.Color,
 			Enabled = true,
@@ -2356,96 +2048,60 @@ local function CreateButton(style, text, parent)
 			Archivable = true,
 			Parent = button,
 		})
-		
-		button.MouseEnter:Connect(function()
-			if config.HoverConfig then
-				ApplyTweens(button, config.HoverConfig, uiStroke, originalSize)
-			end
-		end)
-
-		button.MouseLeave:Connect(function()
-			ApplyTweens(button, {
-				BackgroundColor3 = config.BackgroundColor3,
-				TextColor3 = config.TextColor3,
-				BackgroundTransparency = config.BackgroundTransparency,
-				BorderColor3 = config.BorderColor3,
-				BorderSizePixel = config.BorderSizePixel,
-				Size = UDim2.new(1, 0, 1, 0),
-				UIStroke = config.UIStroke,
-			}, uiStroke, originalSize)
-		end)
-
-		button.MouseButton1Down:Connect(function()
-			if config.FocusConfig then
-				ApplyTweens(button, config.FocusConfig, uiStroke, originalSize)
-			end
-		end)
-
-		button.MouseButton1Up:Connect(function()
-			if config.HoverConfig then
-				ApplyTweens(button, config.HoverConfig, uiStroke, originalSize)
-			else
-				ApplyTweens(button, {
-					BackgroundColor3 = config.BackgroundColor3,
-					TextColor3 = config.TextColor3,
-					BackgroundTransparency = config.BackgroundTransparency,
-					BorderColor3 = config.BorderColor3,
-					BorderSizePixel = config.BorderSizePixel,
-					Size = UDim2.new(1, 0, 1, 0),
-					UIStroke = config.UIStroke,
-				}, uiStroke, originalSize)
-			end
-		end)
-	else
-		button.MouseEnter:Connect(function()
-			if config.HoverConfig then
-				ApplyTweens(button, config.HoverConfig, nil, originalSize)
-			end
-		end)
-
-		button.MouseLeave:Connect(function()
-			ApplyTweens(button, {
-				BackgroundColor3 = config.BackgroundColor3,
-				TextColor3 = config.TextColor3,
-				BackgroundTransparency = config.BackgroundTransparency,
-				BorderColor3 = config.BorderColor3,
-				BorderSizePixel = config.BorderSizePixel,
-				Size = UDim2.new(1, 0, 1, 0),
-			}, nil, originalSize)
-		end)
-
-		button.MouseButton1Down:Connect(function()
-			if config.FocusConfig then
-				ApplyTweens(button, config.FocusConfig, nil, originalSize)
-			end
-		end)
-
-		button.MouseButton1Up:Connect(function()
-			if config.HoverConfig then
-				ApplyTweens(button, config.HoverConfig, nil, originalSize)
-			else
-				ApplyTweens(button, {
-					BackgroundColor3 = config.BackgroundColor3,
-					TextColor3 = config.TextColor3,
-					BackgroundTransparency = config.BackgroundTransparency,
-					BorderColor3 = config.BorderColor3,
-					BorderSizePixel = config.BorderSizePixel,
-					Size = UDim2.new(1, 0, 1, 0),
-				}, nil, originalSize)
-			end
-		end)
 	end
 
-	-- Add entrance animation
-	button.Position = button.Position + UDim2.new(0, 20, 0, 0)
-	button.BackgroundTransparency = 1
-	button.TextTransparency = 1
-	
-	task.spawn(function()
-		TweenService:Create(button, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-			Position = button.Position - UDim2.new(0, 20, 0, 0),
+	-- Enhanced button interactions
+	button.MouseEnter:Connect(function()
+		if config.HoverConfig then
+			ApplyTweens(button, config.HoverConfig)
+		end
+		-- Add scale effect
+		TweenService:Create(button, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
+			Size = UDim2.new(button.Size.X.Scale * 1.02, button.Size.X.Offset, button.Size.Y.Scale * 1.02, button.Size.Y.Offset)
+		}):Play()
+	end)
+
+	button.MouseLeave:Connect(function()
+		ApplyTweens(button, {
+			BackgroundColor3 = config.BackgroundColor3,
+			TextColor3 = config.TextColor3,
 			BackgroundTransparency = config.BackgroundTransparency,
-			TextTransparency = 0
+			BorderColor3 = config.BorderColor3,
+			BorderSizePixel = config.BorderSizePixel,
+			UIStroke = config.UIStroke,
+		})
+		-- Reset scale
+		TweenService:Create(button, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
+			Size = UDim2.new(button.Size.X.Scale / 1.02, button.Size.X.Offset, button.Size.Y.Scale / 1.02, button.Size.Y.Offset)
+		}):Play()
+	end)
+
+	button.MouseButton1Down:Connect(function()
+		if config.FocusConfig then
+			ApplyTweens(button, config.FocusConfig)
+		end
+		-- Bounce effect
+		TweenService:Create(button, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {
+			Size = UDim2.new(button.Size.X.Scale * 0.98, button.Size.X.Offset, button.Size.Y.Scale * 0.98, button.Size.Y.Offset)
+		}):Play()
+	end)
+
+	button.MouseButton1Up:Connect(function()
+		if config.HoverConfig then
+			ApplyTweens(button, config.HoverConfig)
+		else
+			ApplyTweens(button, {
+				BackgroundColor3 = config.BackgroundColor3,
+				TextColor3 = config.TextColor3,
+				BackgroundTransparency = config.BackgroundTransparency,
+				BorderColor3 = config.BorderColor3,
+				BorderSizePixel = config.BorderSizePixel,
+				UIStroke = config.UIStroke,
+			})
+		end
+		-- Reset bounce
+		TweenService:Create(button, TweenInfo.new(0.1, Enum.EasingStyle.Back), {
+			Size = UDim2.new(button.Size.X.Scale / 0.98, button.Size.X.Offset, button.Size.Y.Scale / 0.98, button.Size.Y.Offset)
 		}):Play()
 	end)
 
@@ -2459,21 +2115,7 @@ function Element:New(Config)
 	local Button = {}
 
 	Button.StyledButton = CreateButton(Config.Variant, Config.Title, self.Container)
-	Button.StyledButton.MouseButton1Click:Connect(function()
-		-- Enhanced click feedback
-		local clickFeedback = TweenService:Create(Button.StyledButton, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {
-			TextSize = 13
-		})
-		clickFeedback:Play()
-		
-		clickFeedback.Completed:Connect(function()
-			TweenService:Create(Button.StyledButton, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {
-				TextSize = 14
-			}):Play()
-		end)
-		
-		Config.Callback()
-	end)
+	Button.StyledButton.MouseButton1Click:Connect(Config.Callback)
 
 	return Button
 end
@@ -2536,20 +2178,20 @@ function Element:New(Idx, Config)
 		BackgroundTransparency = 1,
 		BorderColor3 = Color3.fromRGB(0, 0, 0),
 		BorderSizePixel = 0,
-		Size = UDim2.new(1, 0, 0, 34), -- Taller for better proportions
+		Size = UDim2.new(1, 0, 0, 34), -- Slightly taller
 		Visible = true,
 		Parent = ColorpickerFrame.Frame,
 	}, {
 		Create("UIStroke", {
 			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-			Color = Color3.fromRGB(35, 35, 38), -- Better border color
+			Color = Color3.fromRGB(24, 24, 26),
 			Enabled = true,
 			LineJoinMode = Enum.LineJoinMode.Round,
-			Thickness = 1.5,
+			Thickness = 2, -- Thicker border
 			Archivable = true,
 		}),
 		Create("UICorner", {
-			CornerRadius = UDim.new(0, 8), -- More rounded
+			CornerRadius = UDim.new(0, 6), -- More rounded
 			Archivable = true,
 		}),
 	})
@@ -2560,30 +2202,30 @@ function Element:New(Idx, Config)
 		BorderColor3 = Color3.fromRGB(0, 0, 0),
 		BorderSizePixel = 0,
 		Position = UDim2.new(0, 0, 0.5, 0),
-		Size = UDim2.new(0, 34, 1, 0),
+		Size = UDim2.new(0, 34, 1, 0), -- Larger color box
 		Visible = true,
 		Parent = InputFrame,
 	}, {
 		Create("UIStroke", {
 			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-			Color = Color3.fromRGB(45, 45, 48),
+			Color = Color3.fromRGB(24, 24, 26),
 			Enabled = true,
 			LineJoinMode = Enum.LineJoinMode.Round,
-			Thickness = 1.5,
+			Thickness = 2,
 			Archivable = true,
 		}),
 		Create("UICorner", {
-			CornerRadius = UDim.new(0, 6),
+			CornerRadius = UDim.new(0, 4),
 		}),
 	})
 
 	local inputHex = Create("TextBox", {
-		Font = Enum.Font.GothamSemibold,
+		Font = Enum.Font.GothamSemibold, -- Enhanced font
 		LineHeight = 1.2,
 		PlaceholderColor3 = Color3.fromRGB(178, 178, 178),
 		Text = "#03ff96",
-		TextColor3 = Color3.fromRGB(200, 200, 200),
-		TextSize = 13,
+		TextColor3 = Color3.fromRGB(178, 178, 178),
+		TextSize = 15, -- Slightly larger
 		TextXAlignment = Enum.TextXAlignment.Left,
 		AnchorPoint = Vector2.new(1, 0.5),
 		BackgroundColor3 = Color3.fromRGB(255, 255, 255),
@@ -2597,25 +2239,14 @@ function Element:New(Idx, Config)
 	}, {
 		Create("UIPadding", {
 			PaddingBottom = UDim.new(0, 0),
-			PaddingLeft = UDim.new(0, 12),
-			PaddingRight = UDim.new(0, 12),
+			PaddingLeft = UDim.new(0, 16),
+			PaddingRight = UDim.new(0, 16),
 			PaddingTop = UDim.new(0, 0),
 			Archivable = true,
 		}),
 	})
 
-	-- Enhanced input animations
-	inputHex.Focused:Connect(function()
-		TweenService:Create(InputFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-			BackgroundTransparency = 0.95
-		}):Play()
-	end)
-
-	inputHex.FocusLost:Connect(function(Enter)
-		TweenService:Create(InputFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-			BackgroundTransparency = 1
-		}):Play()
-		
+	AddConnection(inputHex.FocusLost, function(Enter)
 		if Enter then
 			local Success, Result = pcall(Color3.fromHex, inputHex.Text)
 			if Success and typeof(Result) == "Color3" then
@@ -2624,16 +2255,16 @@ function Element:New(Idx, Config)
 		end
 	end)
 
-	-- Enhanced Colorpicker with better styling
+	-- Enhanced Colorpicker
 	local colorpicker_frame = Create("TextButton", {
 		AutoButtonColor = false,
 		Text = "",
 		ZIndex = 20,
-		BackgroundColor3 = Color3.fromRGB(15, 15, 18),
+		BackgroundColor3 = Color3.fromRGB(9, 9, 11),
 		BorderColor3 = Color3.fromRGB(0, 0, 0),
 		BorderSizePixel = 0,
 		Position = UDim2.new(0, 0, 0, 50),
-		Size = UDim2.new(1, 0, 0, 180), -- Taller for better proportions
+		Size = UDim2.new(1, 0, 0, 180), -- Slightly larger
 		Visible = false,
 		Parent = ColorpickerFrame.Frame,
 	}, {
@@ -2645,19 +2276,14 @@ function Element:New(Idx, Config)
 			Archivable = true,
 		}),
 		Create("UICorner", {
-			CornerRadius = UDim.new(0, 10),
-		}),
-		Create("UIStroke", {
-			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-			Color = Color3.fromRGB(45, 45, 48),
-			Thickness = 1.5,
+			CornerRadius = UDim.new(0, 8),
 		}),
 	})
 
 	local color = Create("ImageLabel", {
 		Image = "rbxassetid://4155801252",
 		BackgroundColor3 = Color3.fromRGB(255, 0, 4),
-		Size = UDim2.new(1, -12, 0, 140), -- Taller color picker
+		Size = UDim2.new(1, -12, 0, 140), -- Larger color area
 		Visible = true,
 		ZIndex = 10,
 		Parent = colorpicker_frame,
@@ -2685,7 +2311,7 @@ function Element:New(Idx, Config)
 			Color = Color3.fromRGB(255, 255, 255),
 			Enabled = true,
 			LineJoinMode = Enum.LineJoinMode.Round,
-			Thickness = 2, -- Thicker border
+			Thickness = 2, -- Thicker stroke
 			Archivable = true,
 		}),
 	})
@@ -2694,7 +2320,7 @@ function Element:New(Idx, Config)
 		AnchorPoint = Vector2.new(1, 0),
 		BackgroundColor3 = Color3.fromRGB(255, 255, 255),
 		Position = UDim2.new(1, 0, 0, 0),
-		Size = UDim2.new(0, 8, 0, 140), -- Wider hue bar
+		Size = UDim2.new(0, 8, 0, 140), -- Larger hue bar
 		Visible = true,
 		Parent = colorpicker_frame,
 	}, {
@@ -2755,7 +2381,7 @@ function Element:New(Idx, Config)
 		BorderColor3 = Color3.fromRGB(0, 0, 0),
 		BorderSizePixel = 0,
 		Position = UDim2.new(0, 0, 1, 0),
-		Size = UDim2.new(1, 0, 0, 20), -- Taller toggle area
+		Size = UDim2.new(1, 0, 0, 20), -- Slightly taller
 		Visible = true,
 		Parent = colorpicker_frame,
 	})
@@ -2770,22 +2396,21 @@ function Element:New(Idx, Config)
 		Parent = rainbowtoggle,
 	}, {
 		Create("UICorner", {
-			CornerRadius = UDim.new(0, 6), -- More rounded
+			CornerRadius = UDim.new(0, 6),
 			Archivable = true,
 		}),
 		Create("UIStroke", {
 			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-			Color = Color3.fromRGB(200, 200, 200),
+			Color = Color3.fromRGB(250, 250, 250),
 			Enabled = true,
 			LineJoinMode = Enum.LineJoinMode.Round,
-			Thickness = 1.5,
+			Thickness = 2,
 			Archivable = true,
 		}),
+
 		Create("ImageLabel", {
 			Image = "http://www.roblox.com/asset/?id=6031094667",
-			ThemeProps = {
-				ImageColor3 = "maincolor"
-			},
+			ImageColor3 = Color3.fromRGB(9, 9, 11),
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			BackgroundColor3 = Color3.fromRGB(255, 255, 255),
 			BackgroundTransparency = 1,
@@ -2796,10 +2421,10 @@ function Element:New(Idx, Config)
 			Visible = true,
 		}),
 		Create("TextLabel", {
-			Font = Enum.Font.GothamSemibold,
-			Text = "🌈 Rainbow",
-			TextColor3 = Color3.fromRGB(220, 220, 220),
-			TextSize = 13,
+			Font = Enum.Font.GothamSemibold, -- Enhanced font
+			Text = "Rainbow",
+			TextColor3 = Color3.fromRGB(234, 234, 234),
+			TextSize = 15, -- Slightly larger
 			TextXAlignment = Enum.TextXAlignment.Left,
 			BackgroundColor3 = Color3.fromRGB(255, 255, 255),
 			BackgroundTransparency = 1,
@@ -2818,19 +2443,9 @@ function Element:New(Idx, Config)
         end
         
         local newColor = Color3.fromHSV(Colorpicker.Hue, Colorpicker.Sat, Colorpicker.Vib)
-        
-        -- Enhanced color updates with animations
-        TweenService:Create(colorBox, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-            BackgroundColor3 = newColor
-        }):Play()
-        
-        TweenService:Create(color, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-            BackgroundColor3 = Color3.fromHSV(Colorpicker.Hue, 1, 1)
-        }):Play()
-        
-        TweenService:Create(color_selection, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-            BackgroundColor3 = newColor
-        }):Play()
+        colorBox.BackgroundColor3 = newColor
+        color.BackgroundColor3 = Color3.fromHSV(Colorpicker.Hue, 1, 1)
+        color_selection.BackgroundColor3 = newColor
         
         if inputHex then
             inputHex.Text = "#" .. newColor:ToHex()
@@ -2842,12 +2457,7 @@ function Element:New(Idx, Config)
 	local function UpdateColorPickerPosition()
 		local ColorX = math.clamp(mouse.X - color.AbsolutePosition.X, 0, color.AbsoluteSize.X)
 		local ColorY = math.clamp(mouse.Y - color.AbsolutePosition.Y, 0, color.AbsoluteSize.Y)
-		
-		-- Smooth position updates
-		TweenService:Create(color_selection, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {
-			Position = UDim2.new(ColorX / color.AbsoluteSize.X, 0, ColorY / color.AbsoluteSize.Y, 0)
-		}):Play()
-		
+		color_selection.Position = UDim2.new(ColorX / color.AbsoluteSize.X, 0, ColorY / color.AbsoluteSize.Y, 0)
 		Colorpicker.Sat = ColorX / color.AbsoluteSize.X
 		Colorpicker.Vib = 1 - (ColorY / color.AbsoluteSize.Y)
 		UpdateColorPicker()
@@ -2856,12 +2466,7 @@ function Element:New(Idx, Config)
 	
 	local function UpdateHuePickerPosition()
 		local HueY = math.clamp(mouse.Y - hue.AbsolutePosition.Y, 0, hue.AbsoluteSize.Y)
-		
-		-- Smooth hue position updates
-		TweenService:Create(hue_selection, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {
-			Position = UDim2.new(0.5, 0, HueY / hue.AbsoluteSize.Y, 0)
-		}):Play()
-		
+		hue_selection.Position = UDim2.new(0.5, 0, HueY / hue.AbsoluteSize.Y, 0)
 		Colorpicker.Hue = HueY / hue.AbsoluteSize.Y
 		UpdateColorPicker()
 		inputHex.Text = "#" .. Color3.fromHSV(Colorpicker.Hue, Colorpicker.Sat, Colorpicker.Vib):ToHex()
@@ -2915,21 +2520,14 @@ function Element:New(Idx, Config)
 
 	AddConnection(ColorpickerFrame.Frame.MouseButton1Click, function()
 		Colorpicker.ColorpickerToggle = not Colorpicker.ColorpickerToggle
+		colorpicker_frame.Visible = Colorpicker.ColorpickerToggle
 		
 		-- Enhanced toggle animation
 		if Colorpicker.ColorpickerToggle then
-			colorpicker_frame.Visible = true
 			colorpicker_frame.Size = UDim2.new(1, 0, 0, 0)
-			TweenService:Create(colorpicker_frame, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+			TweenService:Create(colorpicker_frame, TweenInfo.new(0.3, Enum.EasingStyle.Back), {
 				Size = UDim2.new(1, 0, 0, 180)
 			}):Play()
-		else
-			TweenService:Create(colorpicker_frame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-				Size = UDim2.new(1, 0, 0, 0)
-			}):Play()
-			
-			task.wait(0.3)
-			colorpicker_frame.Visible = false
 		end
 	end)
 
@@ -2937,10 +2535,10 @@ function Element:New(Idx, Config)
 		RainbowColorPicker = not RainbowColorPicker
 		Colorpicker.RainbowMode = RainbowColorPicker
 		
-		-- Enhanced rainbow toggle animation
+		-- Enhanced toggle animation
 		TweenService:Create(
 			togglebox,
-			TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+			TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
 			{ BackgroundTransparency = RainbowColorPicker and 0 or 1 }
 		):Play()
 		
@@ -2967,18 +2565,9 @@ function Element:New(Idx, Config)
         self:SetHSVFromRGB(newColor)
         
         if color_selection and colorBox and hue_selection then
-            TweenService:Create(color_selection, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
-                Position = UDim2.new(self.Sat, 0, 1 - self.Vib, 0)
-            }):Play()
-            
-            TweenService:Create(colorBox, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
-                BackgroundColor3 = newColor
-            }):Play()
-            
-            TweenService:Create(hue_selection, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
-                Position = UDim2.new(0.5, 0, self.Hue, 0)
-            }):Play()
-            
+            color_selection.Position = UDim2.new(self.Sat, 0, 1 - self.Vib, 0)
+            colorBox.BackgroundColor3 = newColor
+            hue_selection.Position = UDim2.new(0.5, 0, self.Hue, 0)
             UpdateColorPicker()
         end
     end
@@ -3035,7 +2624,7 @@ function Element:New(Idx, Config)
 		BackgroundTransparency = 1,
 		BorderColor3 = Color3.fromRGB(0, 0, 0),
 		BorderSizePixel = 0,
-		Size = UDim2.new(1, 0, 0, 34), -- Taller for better proportions
+		Size = UDim2.new(1, 0, 0, 36), -- Slightly taller
 		Visible = true,
 		Parent = DropdownFrame.Frame,
 	}, {
@@ -3044,7 +2633,7 @@ function Element:New(Idx, Config)
 			ThemeProps = { Color = "bordercolor" },
 			Enabled = true,
 			LineJoinMode = Enum.LineJoinMode.Round,
-			Thickness = 1.5, -- Thicker border
+			Thickness = 2, -- Thicker border
 			Archivable = true,
 		}),
 		Create("UICorner", {
@@ -3066,7 +2655,7 @@ function Element:New(Idx, Config)
 		BackgroundTransparency = 1,
 		BorderColor3 = Color3.fromRGB(0, 0, 0),
 		BorderSizePixel = 0,
-		Size = UDim2.new(0, 0, 0, 34),
+		Size = UDim2.new(0, 0, 0, 36),
 		Visible = true,
 		Parent = DropdownElement,
 	}, {
@@ -3078,7 +2667,7 @@ function Element:New(Idx, Config)
 			Archivable = true,
 		}),
 		Create("UIListLayout", {
-			Padding = UDim.new(0, 6), -- Better spacing
+			Padding = UDim.new(0, 6),
 			Wraps = true,
 			FillDirection = Enum.FillDirection.Horizontal,
 			SortOrder = Enum.SortOrder.LayoutOrder,
@@ -3090,11 +2679,11 @@ function Element:New(Idx, Config)
 
 	local search = Create("TextBox", {
 		CursorPosition = -1,
-		Font = Enum.Font.GothamSemibold, -- Better font
+		Font = Enum.Font.GothamSemibold, -- Enhanced font
 		PlaceholderText = Config.PlaceHolder,
 		Text = "",
-		TextColor3 = Color3.fromRGB(220, 220, 220),
-		TextSize = 13,
+		TextColor3 = Color3.fromRGB(255, 255, 255),
+		TextSize = 15, -- Slightly larger
 		TextXAlignment = Enum.TextXAlignment.Left,
 		ThemeProps = {
 			BackgroundColor3 = "maincolor"
@@ -3102,14 +2691,14 @@ function Element:New(Idx, Config)
 		BackgroundTransparency = 1,
 		BorderColor3 = Color3.fromRGB(0, 0, 0),
 		BorderSizePixel = 0,
-		Size = UDim2.new(0, 140, 0, 34),
+		Size = UDim2.new(0, 140, 0, 36),
 		Visible = true,
 		Parent = DropdownElement,
 	}, {
 		Create("UIPadding", {
 			PaddingBottom = UDim.new(0, 0),
-			PaddingLeft = UDim.new(0, 12),
-			PaddingRight = UDim.new(0, 12),
+			PaddingLeft = UDim.new(0, 16),
+			PaddingRight = UDim.new(0, 16),
 			PaddingTop = UDim.new(0, 0),
 			Archivable = true,
 		}),
@@ -3132,7 +2721,7 @@ function Element:New(Idx, Config)
 			ThemeProps = { Color = "bordercolor" },
 			Enabled = true,
 			LineJoinMode = Enum.LineJoinMode.Round,
-			Thickness = 1.5,
+			Thickness = 2,
 			Archivable = true,
 		}),
 		Create("UICorner", {
@@ -3147,71 +2736,47 @@ function Element:New(Idx, Config)
 			Archivable = true,
 		}),
 		Create("UIListLayout", {
-			Padding = UDim.new(0, 6), -- Better spacing
+			Padding = UDim.new(0, 6),
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}),
 	})
 
-	-- Enhanced dropdown animations
-	AddConnection(search.Focused, function()
-		Dropdown.Toggled = true
-		dropcont.Visible = true
-		
-		-- Smooth dropdown opening animation
-		dropcont.Size = UDim2.new(1, 0, 0, 0)
-		TweenService:Create(dropcont, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-			Size = UDim2.new(1, 0, 0, dropcont.UIListLayout.AbsoluteContentSize.Y + 24)
-		}):Play()
-		
-		TweenService:Create(DropdownElement, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-			BackgroundTransparency = 0.95
-		}):Play()
-	end)
-	
-	AddConnection(DropdownFrame.Frame.MouseButton1Click, function()
+	-- Enhanced dropdown toggle animation
+	local function toggleDropdown()
 		Dropdown.Toggled = not Dropdown.Toggled
 		
 		if Dropdown.Toggled then
 			dropcont.Visible = true
 			dropcont.Size = UDim2.new(1, 0, 0, 0)
-			TweenService:Create(dropcont, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+			TweenService:Create(dropcont, TweenInfo.new(0.3, Enum.EasingStyle.Back), {
 				Size = UDim2.new(1, 0, 0, dropcont.UIListLayout.AbsoluteContentSize.Y + 24)
 			}):Play()
 		else
-			TweenService:Create(dropcont, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+			TweenService:Create(dropcont, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
 				Size = UDim2.new(1, 0, 0, 0)
 			}):Play()
-			
-			task.wait(0.3)
+			task.wait(0.2)
 			dropcont.Visible = false
 		end
-		
-		TweenService:Create(DropdownElement, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-			BackgroundTransparency = Dropdown.Toggled and 0.95 or 1
-		}):Play()
+	end
+
+	AddConnection(search.Focused, function()
+		if not Dropdown.Toggled then
+			toggleDropdown()
+		end
 	end)
-	
+	AddConnection(DropdownFrame.Frame.MouseButton1Click, function()
+		toggleDropdown()
+	end)
+
 	function SearchOptions()
 		local searchText = string.lower(search.Text)
 		for _, v in ipairs(dropcont:GetChildren()) do
 			if v:IsA("TextButton") then
 				local buttonText = string.lower(v.TextLabel.Text)
-				local isVisible = string.find(buttonText, searchText) ~= nil
-				
-				-- Smooth search results animation
-				if isVisible then
+				if string.find(buttonText, searchText) then
 					v.Visible = true
-					TweenService:Create(v, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-						Size = UDim2.new(1, 0, 0, 34),
-						BackgroundTransparency = v.BackgroundTransparency
-					}):Play()
 				else
-					TweenService:Create(v, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-						Size = UDim2.new(1, 0, 0, 0),
-						BackgroundTransparency = 1
-					}):Play()
-					
-					task.wait(0.2)
 					v.Visible = false
 				end
 			end
@@ -3238,11 +2803,11 @@ function Element:New(Idx, Config)
 			})
 
 			local text_label_2 = Create("TextLabel", {
-				Font = Enum.Font.GothamSemibold,
+				Font = Enum.Font.GothamSemibold, -- Enhanced font
 				Text = Option,
 				LineHeight = 0,
-				TextColor3 = Color3.fromRGB(180, 180, 180),
-				TextSize = 13,
+				TextColor3 = Color3.fromRGB(154, 154, 154),
+				TextSize = 15, -- Slightly larger
 				TextXAlignment = Enum.TextXAlignment.Left,
 				BackgroundColor3 = Color3.fromRGB(255, 255, 255),
 				BackgroundTransparency = 1,
@@ -3269,7 +2834,7 @@ function Element:New(Idx, Config)
 				BackgroundTransparency = 1,
 				BorderColor3 = Color3.fromRGB(0, 0, 0),
 				BorderSizePixel = 0,
-				Size = UDim2.new(1, 0, 0, 34), -- Taller options
+				Size = UDim2.new(1, 0, 0, 36), -- Taller buttons
 				Visible = true,
 				Parent = dropcont,
 			}, {
@@ -3281,25 +2846,13 @@ function Element:New(Idx, Config)
 				check,
 			})
 
-			-- Enhanced hover effects for dropdown options
-			dropbtn.MouseEnter:Connect(function()
-				TweenService:Create(dropbtn, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-					BackgroundTransparency = 0.9
-				}):Play()
-				TweenService:Create(text_label_2, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-					TextColor3 = Color3.fromRGB(220, 220, 220)
-				}):Play()
+			-- Enhanced button hover effects
+			AddConnection(dropbtn.MouseEnter, function()
+				TweenService:Create(dropbtn, TweenInfo.new(0.2), {BackgroundTransparency = 0.9}):Play()
 			end)
-
-			dropbtn.MouseLeave:Connect(function()
-				if not (Config.Multiple and table.find(Dropdown.Value, Option)) and not (not Config.Multiple and Dropdown.Value == Option) then
-					TweenService:Create(dropbtn, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-						BackgroundTransparency = 1
-					}):Play()
-					TweenService:Create(text_label_2, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-						TextColor3 = Color3.fromRGB(180, 180, 180)
-					}):Play()
-				end
+			AddConnection(dropbtn.MouseLeave, function()
+				local isSelected = (Config.Multiple and table.find(Dropdown.Value, Option)) or (not Config.Multiple and Dropdown.Value == Option)
+				TweenService:Create(dropbtn, TweenInfo.new(0.2), {BackgroundTransparency = isSelected and 0 or 1}):Play()
 			end)
 
 			AddConnection(dropbtn.MouseButton1Click, function()
@@ -3324,13 +2877,7 @@ function Element:New(Idx, Config)
 				end
 				
 				if not Config.Multiple then
-					Dropdown.Toggled = false
-					TweenService:Create(dropcont, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-						Size = UDim2.new(1, 0, 0, 0)
-					}):Play()
-					
-					task.wait(0.3)
-					dropcont.Visible = false
+					toggleDropdown()
 				end
 			end)
 
@@ -3351,10 +2898,8 @@ function Element:New(Idx, Config)
 
 	function Dropdown:Set(Value, ignore)
 		local function updateButtonTransparency(button, isSelected)
-			local transparency = isSelected and 0.1 or 1
+			local transparency = isSelected and 0 or 1
 			local textTransparency = isSelected and CurrentThemeProps.itemTextOff or CurrentThemeProps.itemTextOn
-			local imageTransparency = isSelected and 0 or 1
-			
 			TweenService:Create(
 				button,
 				TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
@@ -3363,7 +2908,7 @@ function Element:New(Idx, Config)
 			TweenService:Create(
 				button.ImageLabel,
 				TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-				{ ImageTransparency = imageTransparency }
+				{ ImageTransparency = transparency }
 			):Play()
 			TweenService:Create(
 				button.TextLabel,
@@ -3375,13 +2920,6 @@ function Element:New(Idx, Config)
 		local function clearValueText()
 			for _, label in pairs(holder:GetChildren()) do
 				if label:IsA("TextButton") then
-					-- Animate removal
-					TweenService:Create(label, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-						Size = UDim2.new(0, 0, 0, 0),
-						BackgroundTransparency = 1
-					}):Play()
-					
-					task.wait(0.2)
 					label:Destroy()
 				end
 			end
@@ -3397,7 +2935,7 @@ function Element:New(Idx, Config)
 				ThemeProps = { BackgroundColor3 = "valuebg" },
 				BorderColor3 = Color3.fromRGB(0, 0, 0),
 				BorderSizePixel = 0,
-				Size = UDim2.new(0, 0, 0, 24), -- Taller tags
+				Size = UDim2.new(0, 0, 0, 24), -- Slightly taller tags
 				Visible = true,
 				Parent = holder,
 			}, {
@@ -3413,15 +2951,15 @@ function Element:New(Idx, Config)
 					Archivable = true,
 				}),
 				Create("UIListLayout", {
-					Padding = UDim.new(0, 6), -- Better spacing
+					Padding = UDim.new(0, 6),
 					FillDirection = Enum.FillDirection.Horizontal,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					VerticalAlignment = Enum.VerticalAlignment.Center,
 				}, {}),
 				Create("TextLabel", {
-					Font = Enum.Font.GothamSemibold,
+					Font = Enum.Font.GothamSemibold, -- Enhanced font
 					ThemeProps = { TextColor3 = "valuetext" },
-					TextSize = 13,
+					TextSize = 14,
 					Text = text,
 					AutomaticSize = Enum.AutomaticSize.X,
 					BackgroundColor3 = Color3.fromRGB(255, 255, 255),
@@ -3455,19 +2993,18 @@ function Element:New(Idx, Config)
 					BorderColor3 = Color3.fromRGB(0, 0, 0),
 					BorderSizePixel = 0,
 					Position = UDim2.new(0.5, 0, 0.5, 0),
-					Size = UDim2.new(0, 16, 0, 16),
+					Size = UDim2.new(0, 18, 0, 18),
 					Visible = true,
 				}, {}),
 			})
 
-			-- Enhanced tag animations
-			tagBtn.Size = UDim2.new(0, 0, 0, 0)
-			tagBtn.BackgroundTransparency = 1
-			
-			TweenService:Create(tagBtn, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-				Size = UDim2.new(0, 0, 0, 24),
-				BackgroundTransparency = 0
-			}):Play()
+			-- Enhanced tag interactions
+			AddConnection(tagBtn.MouseEnter, function()
+				TweenService:Create(tagBtn, TweenInfo.new(0.2), {BackgroundTransparency = 0.8}):Play()
+			end)
+			AddConnection(tagBtn.MouseLeave, function()
+				TweenService:Create(tagBtn, TweenInfo.new(0.2), {BackgroundTransparency = 0}):Play()
+			end)
 
 			AddConnection(tagBtn.MouseButton1Click, function()
 				if Config.Multiple then
@@ -3638,20 +3175,20 @@ function Element:New(Idx, Config)
     local SliderFrame = require(Components.element)(Config.Title, Config.Description, self.Container)
 
     local ValueText = Create("TextLabel", {
-        Font = Enum.Font.GothamBold, -- Bold for better visibility
+        Font = Enum.Font.GothamBold, -- Enhanced font
         RichText = true,
         Text = "fix it good pls",
         ThemeProps = {
             TextColor3 = "titlecolor",
         },
-        TextSize = 15, -- Slightly larger
+        TextSize = 16,
         TextXAlignment = Enum.TextXAlignment.Right,
         BackgroundColor3 = Color3.fromRGB(255, 255, 255),
         BackgroundTransparency = 1,
         BorderColor3 = Color3.fromRGB(0, 0, 0),
         BorderSizePixel = 0,
         Position = UDim2.new(0.754537523, 8, 0, 0),
-        Size = UDim2.new(0, 100, 0, 18), -- Wider and taller
+        Size = UDim2.new(0, 100, 0, 18), -- Slightly larger
         Visible = true,
         Parent = SliderFrame.topbox,
     })
@@ -3661,13 +3198,13 @@ function Element:New(Idx, Config)
         ThemeProps = { BackgroundColor3 = "sliderbar" },
         BorderColor3 = Color3.fromRGB(0, 0, 0),
         BorderSizePixel = 0,
-        Position = UDim2.new(0.5, 0, 0, 30), -- Better spacing
-        Size = UDim2.new(1, -8, 0, 4), -- Thicker bar
+        Position = UDim2.new(0.5, 0, 0, 30), -- Slightly lower
+        Size = UDim2.new(1, -8, 0, 4), -- Thicker slider bar
         Visible = true,
         Parent = SliderFrame.Frame,
     }, {
         Create("UICorner", {
-            CornerRadius = UDim.new(0, 4), -- More rounded
+            CornerRadius = UDim.new(0, 2),
             Archivable = true,
         }),
         Create("UIStroke", {
@@ -3675,8 +3212,19 @@ function Element:New(Idx, Config)
             ThemeProps = { Color = "sliderbarstroke" },
             Enabled = true,
             LineJoinMode = Enum.LineJoinMode.Round,
-            Thickness = 1.5, -- Thicker stroke
+            Thickness = 1,
             Archivable = true,
+        }),
+        -- Add glow effect
+        Create("UIGradient", {
+            Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(200, 200, 200))
+            }),
+            Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0, 0.8),
+                NumberSequenceKeypoint.new(1, 0.9)
+            })
         }),
     })
 
@@ -3691,7 +3239,7 @@ function Element:New(Idx, Config)
         Parent = SliderBar,
     }, {
         Create("UICorner", {
-            CornerRadius = UDim.new(0, 4),
+            CornerRadius = UDim.new(0, 2),
             Archivable = true,
         }),
         Create("UIStroke", {
@@ -3699,16 +3247,15 @@ function Element:New(Idx, Config)
             ThemeProps = { Color = "sliderprogressborder" },
             Enabled = true,
             LineJoinMode = Enum.LineJoinMode.Round,
-            Thickness = 1.5,
+            Thickness = 1,
             Archivable = true,
         }),
-        -- Enhanced gradient for progress
+        -- Add gradient to progress
         Create("UIGradient", {
             Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0, Color3.fromRGB(100, 200, 255)),
-                ColorSequenceKeypoint.new(1, Color3.fromRGB(80, 180, 255))
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(100, 150, 255)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(150, 200, 255))
             }),
-            Rotation = 0,
         }),
     })
 
@@ -3734,43 +3281,31 @@ function Element:New(Idx, Config)
             CornerRadius = UDim.new(1, 0),
             Archivable = true,
         }),
-        -- Glow effect for the dot
-        Create("ImageLabel", {
-            Image = "rbxasset://textures/ui/GuiImagePlaceholder.png",
-            ImageColor3 = Color3.fromRGB(100, 200, 255),
-            ImageTransparency = 0.7,
-            AnchorPoint = Vector2.new(0.5, 0.5),
-            Position = UDim2.new(0.5, 0, 0.5, 0),
-            Size = UDim2.new(1, 6, 1, 6),
-            ZIndex = -1,
+        -- Add glow effect to dot
+        Create("UIGradient", {
+            Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(240, 240, 240))
+            }),
         }),
     })
 
     function Slider:Set(Value, ignore)
         self.Value = math.clamp(Round(Value, Config.Increment), Config.Min, Config.Max)
-        
-        -- Enhanced value display with units/formatting
-        local displayValue = tostring(self.Value)
-        if Config.Unit then
-            displayValue = displayValue .. " " .. Config.Unit
-        end
-        ValueText.Text = string.format("%s<font transparency='0.4'>/%s</font>", displayValue, Config.Max)
+        ValueText.Text = string.format("%s<font transparency='0.5'>/%s </font>", tostring(self.Value), Config.Max)
         
         local newPosition = (self.Value - Config.Min) / (Config.Max - Config.Min)
         
         if DraggingDot then
-            -- Instant update when dragging dot for responsiveness
             SliderDot.Position = UDim2.new(newPosition, 0, 0.5, 0)
             SliderProgress.Size = UDim2.fromScale(newPosition, 1)
         else
-            -- Smooth animations when not dragging
-            local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-            
-            TweenService:Create(SliderDot, tweenInfo, {
+            -- Enhanced smooth animations
+            TweenService:Create(SliderDot, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
                 Position = UDim2.new(newPosition, 0, 0.5, 0)
             }):Play()
             
-            TweenService:Create(SliderProgress, tweenInfo, {
+            TweenService:Create(SliderProgress, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
                 Size = UDim2.fromScale(newPosition, 1)
             }):Play()
         end
@@ -3792,15 +3327,14 @@ function Element:New(Idx, Config)
     end
 
     -- Enhanced hover effects
-    SliderBar.MouseEnter:Connect(function()
-        TweenService:Create(SliderDot, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
+    AddConnection(SliderBar.MouseEnter, function()
+        TweenService:Create(SliderDot, TweenInfo.new(0.2), {
             Size = UDim2.new(0, 18, 0, 18)
         }):Play()
     end)
-
-    SliderBar.MouseLeave:Connect(function()
+    AddConnection(SliderBar.MouseLeave, function()
         if not Dragging then
-            TweenService:Create(SliderDot, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
+            TweenService:Create(SliderDot, TweenInfo.new(0.2), {
                 Size = UDim2.new(0, 16, 0, 16)
             }):Play()
         end
@@ -3809,12 +3343,6 @@ function Element:New(Idx, Config)
     AddConnection(SliderBar.InputBegan, function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             Dragging = true
-            
-            -- Enhanced drag start animation
-            TweenService:Create(SliderDot, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {
-                Size = UDim2.new(0, 20, 0, 20)
-            }):Play()
-            
             updateSliderFromInput(input.Position)
         end
     end)
@@ -3823,13 +3351,12 @@ function Element:New(Idx, Config)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             Dragging = true
             DraggingDot = true
-            
-            -- Enhanced dot drag animation
-            TweenService:Create(SliderDot, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {
-                Size = UDim2.new(0, 22, 0, 22)
-            }):Play()
-            
             updateSliderFromInput(input.Position)
+            
+            -- Enhanced drag feedback
+            TweenService:Create(SliderDot, TweenInfo.new(0.1), {
+                Size = UDim2.new(0, 20, 0, 20)
+            }):Play()
         end
     end)
 
@@ -3839,8 +3366,8 @@ function Element:New(Idx, Config)
                 Dragging = false
                 DraggingDot = false
                 
-                -- Enhanced drag end animation
-                TweenService:Create(SliderDot, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+                -- Reset dot size
+                TweenService:Create(SliderDot, TweenInfo.new(0.2), {
                     Size = UDim2.new(0, 16, 0, 16)
                 }):Play()
             end
@@ -3890,24 +3417,24 @@ function Element:New(Config)
 
     local textbox = Create("TextBox", {
         CursorPosition = -1,
-        Font = Enum.Font.GothamSemibold, -- Better font
+        Font = Enum.Font.GothamSemibold, -- Enhanced font
         PlaceholderText = Config.PlaceHolder,
         Text = Textbox.Value,
-        TextColor3 = Color3.fromRGB(220, 220, 220),
-        TextSize = 13,
+        TextColor3 = Color3.fromRGB(255, 255, 255),
+        TextSize = 15, -- Slightly larger
         TextXAlignment = Enum.TextXAlignment.Left,
         BackgroundColor3 = Color3.fromRGB(255, 255, 255),
         BackgroundTransparency = 1,
         BorderColor3 = Color3.fromRGB(0, 0, 0),
         BorderSizePixel = 0,
-        Size = UDim2.new(1, 0, 0, 34), -- Taller for better proportions
+        Size = UDim2.new(1, 0, 0, 36), -- Taller textbox
         Visible = true,
         Parent = TextboxFrame.Frame,
     }, {
         Create("UIPadding", {
             PaddingBottom = UDim.new(0, 0),
-            PaddingLeft = UDim.new(0, 14), -- Better padding
-            PaddingRight = UDim.new(0, 14),
+            PaddingLeft = UDim.new(0, 16), -- More padding
+            PaddingRight = UDim.new(0, 16),
             PaddingTop = UDim.new(0, 0),
             Archivable = true,
         }),
@@ -3916,7 +3443,7 @@ function Element:New(Config)
             ThemeProps = { Color = "bordercolor" },
             Enabled = true,
             LineJoinMode = Enum.LineJoinMode.Round,
-            Thickness = 1.5, -- Thicker border
+            Thickness = 2, -- Thicker border
             Archivable = true,
         }),
         Create("UICorner", {
@@ -3925,80 +3452,32 @@ function Element:New(Config)
         }),
     })
 
-    -- Enhanced focus animations
-    textbox.Focused:Connect(function()
-        TweenService:Create(textbox, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-            BackgroundTransparency = 0.95,
-            Size = UDim2.new(1, 0, 0, 36)
-        }):Play()
-        
-        TweenService:Create(textbox.UIStroke, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-            Thickness = 2
+    -- Enhanced focus effects
+    AddConnection(textbox.Focused, function()
+        TweenService:Create(textbox.UIStroke, TweenInfo.new(0.2), {
+            Thickness = 3,
+            Color = Color3.fromRGB(100, 150, 255)
         }):Play()
     end)
 
-    textbox.FocusLost:Connect(function()
-        TweenService:Create(textbox, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-            BackgroundTransparency = 1,
-            Size = UDim2.new(1, 0, 0, 34)
-        }):Play()
-        
-        TweenService:Create(textbox.UIStroke, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-            Thickness = 1.5
+    AddConnection(textbox.FocusLost, function()
+        TweenService:Create(textbox.UIStroke, TweenInfo.new(0.2), {
+            Thickness = 2,
+            Color = Color3.fromRGB(39, 39, 42)
         }):Play()
         
         Textbox.Value = textbox.Text
         Config.Callback(Textbox.Value)
-        
         if Config.TextDisappear then
-            -- Smooth text disappear animation
-            TweenService:Create(textbox, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
-                TextTransparency = 1
-            }):Play()
-            
-            task.wait(0.3)
             textbox.Text = ""
-            textbox.TextTransparency = 0
-        end
-    end)
-
-    -- Enhanced typing animations
-    textbox:GetPropertyChangedSignal("Text"):Connect(function()
-        if textbox:IsFocused() then
-            -- Subtle typing feedback
-            TweenService:Create(textbox, TweenInfo.new(0.05, Enum.EasingStyle.Quad), {
-                TextSize = 14
-            }):Play()
-            
-            task.wait(0.05)
-            TweenService:Create(textbox, TweenInfo.new(0.05, Enum.EasingStyle.Quad), {
-                TextSize = 13
-            }):Play()
         end
     end)
 
     function Textbox:Set(value)
-        -- Enhanced set with animation
-        local oldText = textbox.Text
         textbox.Text = value
         Textbox.Value = value
-        
-        if oldText ~= value then
-            TweenService:Create(textbox, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-                TextTransparency = 0
-            }):Play()
-        end
-        
         Config.Callback(value)
     end
-
-    AddConnection(textbox.FocusLost, function()
-        Textbox.Value = textbox.Text
-        Config.Callback(Textbox.Value)
-        if Config.TextDisappear then
-            textbox.Text = ""
-        end
-    end)
 
     return Textbox
 end
@@ -4054,7 +3533,7 @@ function Element:New(Idx, Config)
             },
             Enabled = true,
             LineJoinMode = Enum.LineJoinMode.Round,
-            Thickness = 1.5, -- Thicker border
+            Thickness = 2, -- Thicker border
             Archivable = true,
         }),
         Create("ImageLabel", {
@@ -4074,66 +3553,34 @@ function Element:New(Idx, Config)
     })
 
     -- Enhanced hover effects
-    ToggleFrame.Frame.MouseEnter:Connect(function()
-        TweenService:Create(box_frame, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
+    AddConnection(ToggleFrame.Frame.MouseEnter, function()
+        TweenService:Create(box_frame, TweenInfo.new(0.2), {
             Size = UDim2.new(0, 20, 0, 20)
         }):Play()
-        
-        if not Toggle.Value then
-            TweenService:Create(box_frame, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-                BackgroundTransparency = 0.95
-            }):Play()
-        end
     end)
-
-    ToggleFrame.Frame.MouseLeave:Connect(function()
-        TweenService:Create(box_frame, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
+    AddConnection(ToggleFrame.Frame.MouseLeave, function()
+        TweenService:Create(box_frame, TweenInfo.new(0.2), {
             Size = UDim2.new(0, 18, 0, 18)
         }):Play()
-        
-        if not Toggle.Value then
-            TweenService:Create(box_frame, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-                BackgroundTransparency = 1
-            }):Play()
-        end
     end)
 
     function Toggle:Set(Value, ignore)
         self.Value = Value
         
         -- Enhanced toggle animation with bounce
-        if self.Value then
-            TweenService:Create(box_frame, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-                BackgroundTransparency = 0,
-                Size = UDim2.new(0, 20, 0, 20)
-            }):Play()
-            
-            task.wait(0.1)
-            TweenService:Create(box_frame, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                Size = UDim2.new(0, 18, 0, 18)
-            }):Play()
-        else
-            TweenService:Create(box_frame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                BackgroundTransparency = 1
-            }):Play()
-        end
+        TweenService:Create(box_frame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            BackgroundTransparency = self.Value and 0 or 1
+        }):Play()
         
-        -- Enhanced checkmark animation
-        local checkmark = box_frame.ImageLabel
-        if self.Value then
-            checkmark.ImageTransparency = 1
-            checkmark.Size = UDim2.new(0, 10, 0, 10)
-            
-            TweenService:Create(checkmark, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-                ImageTransparency = 0,
-                Size = UDim2.new(0, 14, 0, 14)
-            }):Play()
-        else
-            TweenService:Create(checkmark, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-                ImageTransparency = 1,
-                Size = UDim2.new(0, 10, 0, 10)
-            }):Play()
-        end
+        -- Add scale effect
+        TweenService:Create(box_frame, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {
+            Size = UDim2.new(0, self.Value and 22 or 16, 0, self.Value and 22 or 16)
+        }):Play()
+        
+        task.wait(0.1)
+        TweenService:Create(box_frame, TweenInfo.new(0.2, Enum.EasingStyle.Back), {
+            Size = UDim2.new(0, 18, 0, 18)
+        }):Play()
         
         if not ignore and (not self.IgnoreFirst or not self.FirstUpdate) then
             Library:Callback(Toggle.Callback, self.Value)
@@ -4142,12 +3589,6 @@ function Element:New(Idx, Config)
     end
 
     AddConnection(ToggleFrame.Frame.MouseButton1Click, function()
-        -- Enhanced click feedback
-        TweenService:Create(box_frame, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {
-            Size = UDim2.new(0, 16, 0, 16)
-        }):Play()
-        
-        task.wait(0.1)
         Toggle:Set(not Toggle.Value)
     end)
 
@@ -4164,152 +3605,165 @@ end)() end,
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 
-local tools = { Signals = {}, themedObjects = {} }
+local tools = { Signals = {} }
 
 -- ===== ENHANCED THEME SYSTEM =====
 local themes = {
-    -- Enhanced default theme with better colors
     default = {
-        maincolor = Color3.fromRGB(12, 12, 15),
-        titlecolor = Color3.fromRGB(240, 240, 245),
-        descriptioncolor = Color3.fromRGB(180, 180, 190),
-        elementdescription = Color3.fromRGB(160, 160, 170),
-        bordercolor = Color3.fromRGB(35, 35, 40),
-        scrollcolor = Color3.fromRGB(80, 80, 90),
+        -- Main colors
+        maincolor = Color3.fromRGB(9, 9, 11),
+        bordercolor = Color3.fromRGB(39, 39, 42),
+        titlecolor = Color3.fromRGB(234, 234, 234),
+        descriptioncolor = Color3.fromRGB(168, 168, 168),
+        elementdescription = Color3.fromRGB(168, 168, 168),
         
-        -- Enhanced primary colors
-        primarycolor = Color3.fromRGB(100, 200, 255),
-        secondarycolor = Color3.fromRGB(255, 100, 150),
+        -- Primary accent
+        primarycolor = Color3.fromRGB(100, 150, 255),
+        
+        -- Scroll colors
+        scrollcolor = Color3.fromRGB(109, 109, 109),
+        scrollocolor = Color3.fromRGB(109, 109, 109),
         
         -- Tab colors
         onTextBtn = Color3.fromRGB(255, 255, 255),
-        offTextBtn = Color3.fromRGB(120, 120, 130),
-        onBgLineBtn = Color3.fromRGB(100, 200, 255),
-        offBgLineBtn = Color3.fromRGB(50, 50, 55),
+        offTextBtn = Color3.fromRGB(63, 63, 63),
+        onBgLineBtn = Color3.fromRGB(100, 150, 255),
+        offBgLineBtn = Color3.fromRGB(29, 29, 29),
         
-        -- Slider colors
-        sliderbar = Color3.fromRGB(40, 40, 45),
-        sliderbarstroke = Color3.fromRGB(60, 60, 65),
-        sliderprogressbg = Color3.fromRGB(100, 200, 255),
-        sliderprogressborder = Color3.fromRGB(80, 180, 235),
-        sliderdotbg = Color3.fromRGB(255, 255, 255),
-        sliderdotstroke = Color3.fromRGB(100, 200, 255),
+        -- Container colors
+        containeritemsbg = Color3.fromRGB(15, 15, 17),
+        itembg = Color3.fromRGB(20, 20, 22),
+        itemcheckmarkcolor = Color3.fromRGB(100, 150, 255),
+        itemTextOn = Color3.fromRGB(255, 255, 255),
+        itemTextOff = Color3.fromRGB(154, 154, 154),
+        
+        -- Value colors
+        valuebg = Color3.fromRGB(39, 39, 42),
+        valuetext = Color3.fromRGB(255, 255, 255),
         
         -- Toggle colors
-        togglebg = Color3.fromRGB(100, 200, 255),
-        toggleborder = Color3.fromRGB(80, 180, 235),
+        togglebg = Color3.fromRGB(100, 150, 255),
+        toggleborder = Color3.fromRGB(250, 250, 250),
         
-        -- Dropdown colors
-        containeritemsbg = Color3.fromRGB(18, 18, 22),
-        itembg = Color3.fromRGB(25, 25, 30),
-        itemcheckmarkcolor = Color3.fromRGB(100, 200, 255),
-        itemTextOn = Color3.fromRGB(220, 220, 225),
-        itemTextOff = Color3.fromRGB(160, 160, 170),
-        valuebg = Color3.fromRGB(60, 60, 70),
-        valuetext = Color3.fromRGB(240, 240, 245),
+        -- Slider colors
+        sliderbar = Color3.fromRGB(39, 39, 42),
+        sliderbarstroke = Color3.fromRGB(60, 60, 65),
+        sliderprogressbg = Color3.fromRGB(100, 150, 255),
+        sliderprogressborder = Color3.fromRGB(120, 170, 255),
+        sliderdotbg = Color3.fromRGB(255, 255, 255),
+        sliderdotstroke = Color3.fromRGB(100, 150, 255),
     },
     
-    -- Dark blue theme
     darkblue = {
-        maincolor = Color3.fromRGB(8, 12, 20),
-        titlecolor = Color3.fromRGB(230, 240, 255),
-        descriptioncolor = Color3.fromRGB(160, 180, 210),
-        elementdescription = Color3.fromRGB(140, 160, 190),
-        bordercolor = Color3.fromRGB(25, 35, 50),
-        scrollcolor = Color3.fromRGB(60, 80, 120),
+        -- Main colors
+        maincolor = Color3.fromRGB(15, 20, 35),
+        bordercolor = Color3.fromRGB(45, 55, 80),
+        titlecolor = Color3.fromRGB(220, 230, 255),
+        descriptioncolor = Color3.fromRGB(160, 170, 200),
+        elementdescription = Color3.fromRGB(160, 170, 200),
         
-        primarycolor = Color3.fromRGB(80, 150, 255),
-        secondarycolor = Color3.fromRGB(120, 80, 255),
+        -- Primary accent
+        primarycolor = Color3.fromRGB(70, 130, 255),
         
+        -- Scroll colors
+        scrollcolor = Color3.fromRGB(100, 120, 160),
+        scrollocolor = Color3.fromRGB(100, 120, 160),
+        
+        -- Tab colors
         onTextBtn = Color3.fromRGB(255, 255, 255),
-        offTextBtn = Color3.fromRGB(100, 120, 160),
-        onBgLineBtn = Color3.fromRGB(80, 150, 255),
-        offBgLineBtn = Color3.fromRGB(30, 40, 60),
+        offTextBtn = Color3.fromRGB(120, 130, 160),
+        onBgLineBtn = Color3.fromRGB(70, 130, 255),
+        offBgLineBtn = Color3.fromRGB(35, 45, 70),
         
-        sliderbar = Color3.fromRGB(20, 30, 45),
-        sliderbarstroke = Color3.fromRGB(40, 60, 90),
-        sliderprogressbg = Color3.fromRGB(80, 150, 255),
-        sliderprogressborder = Color3.fromRGB(60, 130, 235),
+        -- Container colors
+        containeritemsbg = Color3.fromRGB(20, 25, 40),
+        itembg = Color3.fromRGB(25, 30, 45),
+        itemcheckmarkcolor = Color3.fromRGB(70, 130, 255),
+        itemTextOn = Color3.fromRGB(255, 255, 255),
+        itemTextOff = Color3.fromRGB(160, 170, 200),
+        
+        -- Value colors
+        valuebg = Color3.fromRGB(45, 55, 80),
+        valuetext = Color3.fromRGB(255, 255, 255),
+        
+        -- Toggle colors
+        togglebg = Color3.fromRGB(70, 130, 255),
+        toggleborder = Color3.fromRGB(220, 230, 255),
+        
+        -- Slider colors
+        sliderbar = Color3.fromRGB(45, 55, 80),
+        sliderbarstroke = Color3.fromRGB(65, 75, 100),
+        sliderprogressbg = Color3.fromRGB(70, 130, 255),
+        sliderprogressborder = Color3.fromRGB(90, 150, 255),
         sliderdotbg = Color3.fromRGB(255, 255, 255),
-        sliderdotstroke = Color3.fromRGB(80, 150, 255),
-        
-        togglebg = Color3.fromRGB(80, 150, 255),
-        toggleborder = Color3.fromRGB(60, 130, 235),
-        
-        containeritemsbg = Color3.fromRGB(12, 18, 28),
-        itembg = Color3.fromRGB(18, 25, 38),
-        itemcheckmarkcolor = Color3.fromRGB(80, 150, 255),
-        itemTextOn = Color3.fromRGB(200, 220, 240),
-        itemTextOff = Color3.fromRGB(140, 160, 190),
-        valuebg = Color3.fromRGB(40, 60, 90),
-        valuetext = Color3.fromRGB(230, 240, 255),
+        sliderdotstroke = Color3.fromRGB(70, 130, 255),
     },
     
-    -- Purple theme
     purple = {
-        maincolor = Color3.fromRGB(15, 10, 20),
-        titlecolor = Color3.fromRGB(245, 230, 255),
-        descriptioncolor = Color3.fromRGB(190, 160, 210),
-        elementdescription = Color3.fromRGB(170, 140, 190),
-        bordercolor = Color3.fromRGB(40, 25, 50),
-        scrollcolor = Color3.fromRGB(100, 60, 120),
+        -- Main colors
+        maincolor = Color3.fromRGB(20, 15, 30),
+        bordercolor = Color3.fromRGB(60, 45, 80),
+        titlecolor = Color3.fromRGB(240, 220, 255),
+        descriptioncolor = Color3.fromRGB(180, 160, 200),
+        elementdescription = Color3.fromRGB(180, 160, 200),
         
-        primarycolor = Color3.fromRGB(180, 100, 255),
-        secondarycolor = Color3.fromRGB(255, 100, 200),
+        -- Primary accent
+        primarycolor = Color3.fromRGB(150, 100, 255),
         
+        -- Scroll colors
+        scrollcolor = Color3.fromRGB(120, 100, 160),
+        scrollocolor = Color3.fromRGB(120, 100, 160),
+        
+        -- Tab colors
         onTextBtn = Color3.fromRGB(255, 255, 255),
-        offTextBtn = Color3.fromRGB(140, 100, 160),
-        onBgLineBtn = Color3.fromRGB(180, 100, 255),
-        offBgLineBtn = Color3.fromRGB(50, 30, 60),
+        offTextBtn = Color3.fromRGB(140, 120, 160),
+        onBgLineBtn = Color3.fromRGB(150, 100, 255),
+        offBgLineBtn = Color3.fromRGB(50, 35, 70),
         
-        sliderbar = Color3.fromRGB(30, 20, 45),
-        sliderbarstroke = Color3.fromRGB(60, 40, 90),
-        sliderprogressbg = Color3.fromRGB(180, 100, 255),
-        sliderprogressborder = Color3.fromRGB(160, 80, 235),
+        -- Container colors
+        containeritemsbg = Color3.fromRGB(25, 20, 40),
+        itembg = Color3.fromRGB(30, 25, 45),
+        itemcheckmarkcolor = Color3.fromRGB(150, 100, 255),
+        itemTextOn = Color3.fromRGB(255, 255, 255),
+        itemTextOff = Color3.fromRGB(180, 160, 200),
+        
+        -- Value colors
+        valuebg = Color3.fromRGB(60, 45, 80),
+        valuetext = Color3.fromRGB(255, 255, 255),
+        
+        -- Toggle colors
+        togglebg = Color3.fromRGB(150, 100, 255),
+        toggleborder = Color3.fromRGB(240, 220, 255),
+        
+        -- Slider colors
+        sliderbar = Color3.fromRGB(60, 45, 80),
+        sliderbarstroke = Color3.fromRGB(80, 65, 100),
+        sliderprogressbg = Color3.fromRGB(150, 100, 255),
+        sliderprogressborder = Color3.fromRGB(170, 120, 255),
         sliderdotbg = Color3.fromRGB(255, 255, 255),
-        sliderdotstroke = Color3.fromRGB(180, 100, 255),
-        
-        togglebg = Color3.fromRGB(180, 100, 255),
-        toggleborder = Color3.fromRGB(160, 80, 235),
-        
-        containeritemsbg = Color3.fromRGB(20, 15, 28),
-        itembg = Color3.fromRGB(28, 20, 38),
-        itemcheckmarkcolor = Color3.fromRGB(180, 100, 255),
-        itemTextOn = Color3.fromRGB(225, 200, 240),
-        itemTextOff = Color3.fromRGB(170, 140, 190),
-        valuebg = Color3.fromRGB(70, 40, 90),
-        valuetext = Color3.fromRGB(245, 230, 255),
+        sliderdotstroke = Color3.fromRGB(150, 100, 255),
     }
 }
 
 local currentTheme = themes.default
+local themedObjects = {}
 
--- Enhanced theme management with smooth transitions
+-- Enhanced theme management
 function tools.SetTheme(themeName)
 	if themes[themeName] then
-		local oldTheme = currentTheme
 		currentTheme = themes[themeName]
-		
-		-- Smooth theme transition
-		for _, item in pairs(tools.themedObjects) do
+		for _, item in pairs(themedObjects) do
 			local obj = item.object
 			local props = item.props
-			
-			if obj and obj.Parent then
-				for propName, themeKey in next, props do
-					if currentTheme[themeKey] then
-						-- Smooth color transitions
-						local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-						TweenService:Create(obj, tweenInfo, {
-							[propName] = currentTheme[themeKey]
-						}):Play()
-					end
+			for propName, themeKey in next, props do
+				if currentTheme[themeKey] then
+					obj[propName] = currentTheme[themeKey]
 				end
 			end
 		end
-		print("✨ Theme smoothly changed to:", themeName)
+		print("[Enhanced UI] Theme changed to:", themeName)
 	else
-		warn("❌ Theme not found: " .. themeName)
+		warn("[Enhanced UI] Theme not found: " .. themeName)
 	end
 end
 
@@ -4319,7 +3773,7 @@ end
 
 function tools.AddTheme(themeName, themeProps)
 	themes[themeName] = themeProps
-	print("🎨 Theme added:", themeName)
+	print("[Enhanced UI] Theme added:", themeName)
 end
 
 -- ===== ENHANCED MOBILE DETECTION =====
@@ -4327,87 +3781,52 @@ function tools.isMobile()
     local isTouchDevice = UserInputService.TouchEnabled
     local hasKeyboard = UserInputService.KeyboardEnabled
     local hasMouse = UserInputService.MouseEnabled
-    local screenSize = workspace.CurrentCamera.ViewportSize
     
-    -- More sophisticated mobile detection
-    local isMobileScreen = screenSize.X < 1024 or screenSize.Y < 768
-    return (isTouchDevice and not hasKeyboard) or isMobileScreen
+    return isTouchDevice and not hasKeyboard and not hasMouse
 end
 
 -- ===== ENHANCED CONNECTION MANAGEMENT =====
 function tools.AddConnection(Signal, Function)
-	local success, connection = pcall(function()
-		return Signal:Connect(Function)
-	end)
-	
-	if success and connection then
-		table.insert(tools.Signals, connection)
-		return connection
-	else
-		warn("⚠️ Failed to create connection:", connection)
-		return nil
-	end
+	local connection = Signal:Connect(Function)
+	table.insert(tools.Signals, connection)
+	return connection
 end
 
--- Enhanced disconnect with better error handling and logging
 function tools.Disconnect()
-	local disconnectedCount = 0
 	for key = #tools.Signals, 1, -1 do
 		local Connection = table.remove(tools.Signals, key)
 		if Connection and Connection.Connected then
 			pcall(function()
 				Connection:Disconnect()
-				disconnectedCount = disconnectedCount + 1
 			end)
 		end
 	end
-	print("🔌 Disconnected", disconnectedCount, "connections")
 end
 
 -- ===== ENHANCED CREATE FUNCTION =====
 function tools.Create(Name, Properties, Children)
-	local success, Object = pcall(function()
-		return Instance.new(Name)
-	end)
-	
-	if not success then
-		warn("❌ Failed to create instance:", Name)
-		return nil
-	end
+	local Object = Instance.new(Name)
 
-	-- Enhanced theme property handling with registration
-	if Properties and Properties.ThemeProps then
+	if Properties.ThemeProps then
 		for propName, themeKey in next, Properties.ThemeProps do
 			if currentTheme[themeKey] then
 				Object[propName] = currentTheme[themeKey]
 			end
 		end
-		table.insert(tools.themedObjects, { object = Object, props = Properties.ThemeProps })
+		table.insert(themedObjects, { object = Object, props = Properties.ThemeProps })
 		Properties.ThemeProps = nil
 	end
 
-	-- Apply properties with enhanced error handling
-	if Properties then
-		for i, v in next, Properties do
-			local success, err = pcall(function()
-				Object[i] = v
-			end)
-			if not success then
-				warn("⚠️ Failed to set property", i, "on", Name, ":", err)
-			end
-		end
+	for i, v in next, Properties or {} do
+		pcall(function()
+			Object[i] = v
+		end)
 	end
 	
-	-- Apply children with enhanced error handling
-	if Children then
-		for i, v in next, Children do
-			local success, err = pcall(function()
-				v.Parent = Object
-			end)
-			if not success then
-				warn("⚠️ Failed to parent child", i, "to", Name, ":", err)
-			end
-		end
+	for i, v in next, Children or {} do
+		pcall(function()
+			v.Parent = Object
+		end)
 	end
 	
 	return Object
@@ -4415,10 +3834,10 @@ end
 
 -- ===== ENHANCED SCROLL ANIMATION =====
 function tools.AddScrollAnim(scrollbar)
-	local visibleTween = TweenService:Create(scrollbar, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { ScrollBarImageTransparency = 0 })
-	local invisibleTween = TweenService:Create(scrollbar, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { ScrollBarImageTransparency = 1 })
+	local visibleTween = TweenService:Create(scrollbar, TweenInfo.new(0.3), { ScrollBarImageTransparency = 0 })
+	local invisibleTween = TweenService:Create(scrollbar, TweenInfo.new(0.3), { ScrollBarImageTransparency = 1 })
 	local lastInteraction = tick()
-	local delayTime = 1.2 -- Longer delay for better UX
+	local delayTime = 0.8
 
 	local function showScrollbar()
 		visibleTween:Play()
@@ -4430,17 +3849,14 @@ function tools.AddScrollAnim(scrollbar)
 		end
 	end
 
-	-- Enhanced event handling with better performance
 	tools.AddConnection(scrollbar.MouseEnter, function()
 		lastInteraction = tick()
 		showScrollbar()
 	end)
 
 	tools.AddConnection(scrollbar.MouseLeave, function()
-		task.spawn(function()
-			task.wait(delayTime)
-			hideScrollbar()
-		end)
+		task.wait(delayTime)
+		hideScrollbar()
 	end)
 
 	tools.AddConnection(scrollbar.InputChanged, function(input)
@@ -4455,33 +3871,21 @@ function tools.AddScrollAnim(scrollbar)
 		showScrollbar()
 	end)
 
-	-- Throttled wheel detection for better performance
-	local lastWheelTime = 0
 	tools.AddConnection(UserInputService.InputChanged, function(input)
 		if input.UserInputType == Enum.UserInputType.MouseWheel then
-			local currentTime = tick()
-			if currentTime - lastWheelTime > 0.1 then -- Throttle to 10fps
-				lastInteraction = currentTime
-				lastWheelTime = currentTime
-				showScrollbar()
-			end
+			lastInteraction = tick()
+			showScrollbar()
 		end
 	end)
 
-	-- Optimized heartbeat with better performance
-	local lastHeartbeat = 0
 	tools.AddConnection(RunService.Heartbeat, function()
-		local currentTime = tick()
-		if currentTime - lastHeartbeat > 0.5 then -- Check every 0.5 seconds
-			lastHeartbeat = currentTime
-			if currentTime - lastInteraction >= delayTime then
-				hideScrollbar()
-			end
+		if tick() - lastInteraction >= delayTime then
+			hideScrollbar()
 		end
 	end)
 end
 
--- ===== ENHANCED UTILITY FUNCTIONS =====
+-- ===== UTILITY FUNCTIONS =====
 function tools.GetScreenSize()
 	local camera = workspace.CurrentCamera
 	return camera.ViewportSize
@@ -4500,101 +3904,35 @@ function tools.IsInViewport(object)
 		   objectPosition.Y + objectSize.Y <= viewportSize.Y
 end
 
--- ===== ENHANCED PERFORMANCE MONITORING =====
+-- ===== PERFORMANCE MONITORING =====
 function tools.GetPerformanceStats()
 	local stats = game:GetService("Stats")
-	local frameTime = stats.FrameTime
-	local fps = frameTime > 0 and (1 / frameTime) or 0
-	
 	return {
-		FPS = math.floor(fps * 10) / 10,
-		FrameTime = math.floor(frameTime * 1000 * 100) / 100, -- ms
-		Memory = math.floor(stats:GetTotalMemoryUsageMb() * 100) / 100,
-		ThemeObjects = #tools.themedObjects,
-		Connections = #tools.Signals
+		FPS = math.floor(1 / stats.FrameTime * 10) / 10,
+		Ping = math.floor(stats.PerformanceStats.Ping:GetValue() * 100) / 100,
+		Memory = math.floor(stats:GetTotalMemoryUsageMb() * 100) / 100
 	}
 end
 
 -- ===== ENHANCED ERROR HANDLING =====
 function tools.SafeCall(func, ...)
-	local args = {...}
-	local success, result = pcall(function()
-		return func(unpack(args))
-	end)
-	
+	local success, result = pcall(func, ...)
 	if not success then
-		warn("🔥 SafeCall error:", result)
-		-- Log additional context
-		local info = debug.getinfo(func, "S")
-		if info then
-			warn("🔍 Function source:", info.source, "line:", info.linedefined)
-		end
+		warn("[Enhanced UI] SafeCall error:", result)
 	end
-	
 	return success, result
 end
 
--- ===== ANIMATION HELPERS =====
-function tools.CreateSmoothTween(object, targetProperties, duration, easingStyle, easingDirection)
-	duration = duration or 0.3
-	easingStyle = easingStyle or Enum.EasingStyle.Quad
-	easingDirection = easingDirection or Enum.EasingDirection.Out
-	
-	local tweenInfo = TweenInfo.new(duration, easingStyle, easingDirection)
-	local tween = TweenService:Create(object, tweenInfo, targetProperties)
-	
-	tween:Play()
-	return tween
-end
-
-function tools.CreateBounceAnimation(object, scale, duration)
-	scale = scale or 1.1
-	duration = duration or 0.2
-	
-	local originalSize = object.Size
-	local bounceSize = originalSize * scale
-	
-	local bounceUp = tools.CreateSmoothTween(object, {Size = bounceSize}, duration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-	
-	bounceUp.Completed:Connect(function()
-		tools.CreateSmoothTween(object, {Size = originalSize}, duration, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-	end)
-	
-	return bounceUp
-end
-
--- ===== ENHANCED CLEANUP FUNCTION =====
+-- ===== CLEANUP FUNCTION =====
 function tools.Cleanup()
-	print("🧹 Starting enhanced cleanup...")
-	
-	-- Disconnect all connections
 	tools.Disconnect()
 	
-	-- Clear themed objects with fade animation
-	for i = #tools.themedObjects, 1, -1 do
-		local item = tools.themedObjects[i]
-		if item and item.object and item.object.Parent then
-			-- Fade out before removing
-			tools.CreateSmoothTween(item.object, {
-				BackgroundTransparency = 1,
-				TextTransparency = 1,
-				ImageTransparency = 1
-			}, 0.2)
-		end
-		tools.themedObjects[i] = nil
+	for i = #themedObjects, 1, -1 do
+		themedObjects[i] = nil
 	end
 	
-	-- Force garbage collection
-	collectgarbage("collect")
-	
-	print("✅ Enhanced tools cleanup completed")
-	print("📊 Final stats:", tools.GetPerformanceStats())
+	print("[Enhanced UI] Tools cleanup completed")
 end
-
--- ===== AUTO-CLEANUP ON GAME SHUTDOWN =====
-game:BindToClose(function()
-	tools.Cleanup()
-end)
 
 return tools
 
@@ -5082,7 +4420,7 @@ local function LoadScript(scriptRef)
         local VirtualFullName = scriptRef:GetFullName()
 
         -- Check for vanilla/Roblox format
-        local OriginalErrorLine, BaseErrorMessage = string.match(originalErrorMessage, "[^:]+:(%d+): (.+)")
+        local OriginalErrorLine, BaseErrorMessage = string_match(originalErrorMessage, "[^:]+:(%d+): (.+)")
 
         if not OriginalErrorLine or not LineOffsets then
             return VirtualFullName .. ":*: " .. (BaseErrorMessage or originalErrorMessage)
@@ -5101,25 +4439,18 @@ local function LoadScript(scriptRef)
         return VirtualFullName .. ":" .. RealErrorLine .. ": " .. BaseErrorMessage
     end
 
-    -- Cegah eksekusi Script di client (karena bisa error, misalnya karena BindToClose)
-    if ScriptClassName == "Script" and not RunService:IsServer() then
-        warn("[LoadScript] ⚠️ Tidak menjalankan Script di client:", scriptRef:GetFullName())
-        return
-    end
-
-    -- Jika LocalScript atau Script (di server), jalankan Closure secara langsung
-    if ScriptClassName == "LocalScript" or (ScriptClassName == "Script" and RunService:IsServer()) then
+    -- If it's a BaseScript, we'll just run it directly!
+    if ScriptClassName == "LocalScript" or ScriptClassName == "Script" then
         local RunSuccess, ErrorMessage = pcall(Closure)
         if not RunSuccess then
             error(FormatError(ErrorMessage), 0)
         end
     else
-        -- ModuleScript, jalankan Closure dan simpan hasilnya
-        local PCallReturn = { pcall(Closure) }
+        local PCallReturn = {pcall(Closure)}
 
-        local RunSuccess = table.remove(PCallReturn, 1)
+        local RunSuccess = table_remove(PCallReturn, 1)
         if not RunSuccess then
-            local ErrorMessage = table.remove(PCallReturn, 1)
+            local ErrorMessage = table_remove(PCallReturn, 1)
             error(FormatError(ErrorMessage), 0)
         end
 
