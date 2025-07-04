@@ -5082,7 +5082,7 @@ local function LoadScript(scriptRef)
         local VirtualFullName = scriptRef:GetFullName()
 
         -- Check for vanilla/Roblox format
-        local OriginalErrorLine, BaseErrorMessage = string_match(originalErrorMessage, "[^:]+:(%d+): (.+)")
+        local OriginalErrorLine, BaseErrorMessage = string.match(originalErrorMessage, "[^:]+:(%d+): (.+)")
 
         if not OriginalErrorLine or not LineOffsets then
             return VirtualFullName .. ":*: " .. (BaseErrorMessage or originalErrorMessage)
@@ -5101,18 +5101,25 @@ local function LoadScript(scriptRef)
         return VirtualFullName .. ":" .. RealErrorLine .. ": " .. BaseErrorMessage
     end
 
-    -- If it's a BaseScript, we'll just run it directly!
-    if ScriptClassName == "LocalScript" or ScriptClassName == "Script" then
+    -- Cegah eksekusi Script di client (karena bisa error, misalnya karena BindToClose)
+    if ScriptClassName == "Script" and not RunService:IsServer() then
+        warn("[LoadScript] ⚠️ Tidak menjalankan Script di client:", scriptRef:GetFullName())
+        return
+    end
+
+    -- Jika LocalScript atau Script (di server), jalankan Closure secara langsung
+    if ScriptClassName == "LocalScript" or (ScriptClassName == "Script" and RunService:IsServer()) then
         local RunSuccess, ErrorMessage = pcall(Closure)
         if not RunSuccess then
             error(FormatError(ErrorMessage), 0)
         end
     else
-        local PCallReturn = {pcall(Closure)}
+        -- ModuleScript, jalankan Closure dan simpan hasilnya
+        local PCallReturn = { pcall(Closure) }
 
-        local RunSuccess = table_remove(PCallReturn, 1)
+        local RunSuccess = table.remove(PCallReturn, 1)
         if not RunSuccess then
-            local ErrorMessage = table_remove(PCallReturn, 1)
+            local ErrorMessage = table.remove(PCallReturn, 1)
             error(FormatError(ErrorMessage), 0)
         end
 
