@@ -3608,142 +3608,7 @@ local RunService = game:GetService("RunService")
 local tools = { Signals = {} }
 
 -- ===== ENHANCED THEME SYSTEM =====
-local themes = {
-    default = {
-        -- Main colors
-        maincolor = Color3.fromRGB(9, 9, 11),
-        bordercolor = Color3.fromRGB(39, 39, 42),
-        titlecolor = Color3.fromRGB(234, 234, 234),
-        descriptioncolor = Color3.fromRGB(168, 168, 168),
-        elementdescription = Color3.fromRGB(168, 168, 168),
-        
-        -- Primary accent
-        primarycolor = Color3.fromRGB(100, 150, 255),
-        
-        -- Scroll colors
-        scrollcolor = Color3.fromRGB(109, 109, 109),
-        scrollocolor = Color3.fromRGB(109, 109, 109),
-        
-        -- Tab colors
-        onTextBtn = Color3.fromRGB(255, 255, 255),
-        offTextBtn = Color3.fromRGB(63, 63, 63),
-        onBgLineBtn = Color3.fromRGB(100, 150, 255),
-        offBgLineBtn = Color3.fromRGB(29, 29, 29),
-        
-        -- Container colors
-        containeritemsbg = Color3.fromRGB(15, 15, 17),
-        itembg = Color3.fromRGB(20, 20, 22),
-        itemcheckmarkcolor = Color3.fromRGB(100, 150, 255),
-        itemTextOn = Color3.fromRGB(255, 255, 255),
-        itemTextOff = Color3.fromRGB(154, 154, 154),
-        
-        -- Value colors
-        valuebg = Color3.fromRGB(39, 39, 42),
-        valuetext = Color3.fromRGB(255, 255, 255),
-        
-        -- Toggle colors
-        togglebg = Color3.fromRGB(100, 150, 255),
-        toggleborder = Color3.fromRGB(250, 250, 250),
-        
-        -- Slider colors
-        sliderbar = Color3.fromRGB(39, 39, 42),
-        sliderbarstroke = Color3.fromRGB(60, 60, 65),
-        sliderprogressbg = Color3.fromRGB(100, 150, 255),
-        sliderprogressborder = Color3.fromRGB(120, 170, 255),
-        sliderdotbg = Color3.fromRGB(255, 255, 255),
-        sliderdotstroke = Color3.fromRGB(100, 150, 255),
-    },
-    
-    darkblue = {
-        -- Main colors
-        maincolor = Color3.fromRGB(15, 20, 35),
-        bordercolor = Color3.fromRGB(45, 55, 80),
-        titlecolor = Color3.fromRGB(220, 230, 255),
-        descriptioncolor = Color3.fromRGB(160, 170, 200),
-        elementdescription = Color3.fromRGB(160, 170, 200),
-        
-        -- Primary accent
-        primarycolor = Color3.fromRGB(70, 130, 255),
-        
-        -- Scroll colors
-        scrollcolor = Color3.fromRGB(100, 120, 160),
-        scrollocolor = Color3.fromRGB(100, 120, 160),
-        
-        -- Tab colors
-        onTextBtn = Color3.fromRGB(255, 255, 255),
-        offTextBtn = Color3.fromRGB(120, 130, 160),
-        onBgLineBtn = Color3.fromRGB(70, 130, 255),
-        offBgLineBtn = Color3.fromRGB(35, 45, 70),
-        
-        -- Container colors
-        containeritemsbg = Color3.fromRGB(20, 25, 40),
-        itembg = Color3.fromRGB(25, 30, 45),
-        itemcheckmarkcolor = Color3.fromRGB(70, 130, 255),
-        itemTextOn = Color3.fromRGB(255, 255, 255),
-        itemTextOff = Color3.fromRGB(160, 170, 200),
-        
-        -- Value colors
-        valuebg = Color3.fromRGB(45, 55, 80),
-        valuetext = Color3.fromRGB(255, 255, 255),
-        
-        -- Toggle colors
-        togglebg = Color3.fromRGB(70, 130, 255),
-        toggleborder = Color3.fromRGB(220, 230, 255),
-        
-        -- Slider colors
-        sliderbar = Color3.fromRGB(45, 55, 80),
-        sliderbarstroke = Color3.fromRGB(65, 75, 100),
-        sliderprogressbg = Color3.fromRGB(70, 130, 255),
-        sliderprogressborder = Color3.fromRGB(90, 150, 255),
-        sliderdotbg = Color3.fromRGB(255, 255, 255),
-        sliderdotstroke = Color3.fromRGB(70, 130, 255),
-    },
-    
-    purple = {
-        -- Main colors
-        maincolor = Color3.fromRGB(20, 15, 30),
-        bordercolor = Color3.fromRGB(60, 45, 80),
-        titlecolor = Color3.fromRGB(240, 220, 255),
-        descriptioncolor = Color3.fromRGB(180, 160, 200),
-        elementdescription = Color3.fromRGB(180, 160, 200),
-        
-        -- Primary accent
-        primarycolor = Color3.fromRGB(150, 100, 255),
-        
-        -- Scroll colors
-        scrollcolor = Color3.fromRGB(120, 100, 160),
-        scrollocolor = Color3.fromRGB(120, 100, 160),
-        
-        -- Tab colors
-        onTextBtn = Color3.fromRGB(255, 255, 255),
-        offTextBtn = Color3.fromRGB(140, 120, 160),
-        onBgLineBtn = Color3.fromRGB(150, 100, 255),
-        offBgLineBtn = Color3.fromRGB(50, 35, 70),
-        
-        -- Container colors
-        containeritemsbg = Color3.fromRGB(25, 20, 40),
-        itembg = Color3.fromRGB(30, 25, 45),
-        itemcheckmarkcolor = Color3.fromRGB(150, 100, 255),
-        itemTextOn = Color3.fromRGB(255, 255, 255),
-        itemTextOff = Color3.fromRGB(180, 160, 200),
-        
-        -- Value colors
-        valuebg = Color3.fromRGB(60, 45, 80),
-        valuetext = Color3.fromRGB(255, 255, 255),
-        
-        -- Toggle colors
-        togglebg = Color3.fromRGB(150, 100, 255),
-        toggleborder = Color3.fromRGB(240, 220, 255),
-        
-        -- Slider colors
-        sliderbar = Color3.fromRGB(60, 45, 80),
-        sliderbarstroke = Color3.fromRGB(80, 65, 100),
-        sliderprogressbg = Color3.fromRGB(150, 100, 255),
-        sliderprogressborder = Color3.fromRGB(170, 120, 255),
-        sliderdotbg = Color3.fromRGB(255, 255, 255),
-        sliderdotstroke = Color3.fromRGB(150, 100, 255),
-    }
-}
+local themes = loadstring(game:HttpGet("https://raw.githubusercontent.com/Just3itx/3itx-UI-LIB/refs/heads/main/themes"))()
 
 local currentTheme = themes.default
 local themedObjects = {}
@@ -3761,15 +3626,21 @@ function tools.SetTheme(themeName)
 				end
 			end
 		end
-		print("[Enhanced UI] Theme changed to:", themeName)
+		print("Theme changed to:", themeName) -- Debug info
 	else
-		warn("[Enhanced UI] Theme not found: " .. themeName)
+		warn("Theme not found: " .. themeName)
 	end
 end
 
 function tools.GetPropsCurrentTheme()
 	return currentTheme
 end
+
+function tools.AddTheme(themeName, themeProps)
+	themes[themeName] = themeProps
+	print("Theme added:", themeName) -- Debug info
+end
+
 
 function tools.AddTheme(themeName, themeProps)
 	themes[themeName] = themeProps
