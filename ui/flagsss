@@ -658,6 +658,9 @@ function FlagsManager:InitSaveSystem(tab)
         end)
     end
 
+    -- Variabel untuk menyimpan referensi AutoLoadParagraph (deklarasi di awal)
+    local AutoLoadParagraph = nil
+    
     -- Buat Configuration Section dengan format yang diminta
     local ConfigSection = SafeCreateElement(tab, "Section", {
         Title = gradient("Import/Export Configs"), 
@@ -883,9 +886,6 @@ function FlagsManager:InitSaveSystem(tab)
         end
     end
 
-    -- Variabel untuk menyimpan referensi AutoLoadParagraph
-    local AutoLoadParagraph = nil
-    
     -- Tambahkan informasi Auto Load Config
     AutoLoadParagraph = SafeCreateElement(ConfigSection, "Paragraph", {
         Title = "Auto Load Config",
