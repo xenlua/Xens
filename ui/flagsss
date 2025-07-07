@@ -812,6 +812,12 @@ function FlagsManager:InitSaveSystem(tab)
                     return
                 end
 
+                -- Check if the config being deleted is the current auto load config
+                local currentAutoLoad = ""
+                pcall(function()
+                    currentAutoLoad = FlagsManager:GetAutoLoadConfig()
+                end)
+
                 local success, err = pcall(function()
                     return FlagsManager:Delete(name)
                 end)
@@ -821,6 +827,16 @@ function FlagsManager:InitSaveSystem(tab)
                     return
                 end
 
+                -- If deleted config was the auto load config, clear it
+                if currentAutoLoad == name then
+                    pcall(function()
+                        FlagsManager:SetAutoLoadConfig("")
+                        -- Update paragraph description
+                        if AutoLoadParagraph and AutoLoadParagraph.SetDesc then
+                            AutoLoadParagraph:SetDesc("Current Auto Load: None")
+                        end
+                    end)
+                end
                 SafeNotification('Success', string.format('Deleted config "%s"', name), 3)
 
                 -- Refresh dropdown list setelah penghapusan
