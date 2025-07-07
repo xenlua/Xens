@@ -9,16 +9,27 @@ FlagsManager.Flags = {}
 FlagsManager.Library = nil
 FlagsManager.AntiAFK = false
 
--- Simple Enhanced Avantrix Loader Animation
+-- Enhanced Avantrix Loader Animation with Aliens
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local Lighting = game:GetService("Lighting")
+local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
 
--- Enhanced blur effect
+-- Enhanced blur effect with color correction
 local blur = Instance.new("BlurEffect", Lighting)
 blur.Size = 0
-TweenService:Create(blur, TweenInfo.new(0.6, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = 28}):Play()
+local colorCorrection = Instance.new("ColorCorrectionEffect", Lighting)
+colorCorrection.Brightness = 0
+colorCorrection.Contrast = 0
+colorCorrection.Saturation = 0
+
+TweenService:Create(blur, TweenInfo.new(0.8, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = 35}):Play()
+TweenService:Create(colorCorrection, TweenInfo.new(0.8, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+    Brightness = -0.2,
+    Contrast = 0.3,
+    Saturation = -0.5
+}):Play()
 
 local screenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
 screenGui.Name = "AvantrixLoader"
@@ -29,95 +40,339 @@ local frame = Instance.new("Frame", screenGui)
 frame.Size = UDim2.new(1, 0, 1, 0)
 frame.BackgroundTransparency = 1
 
--- Enhanced background with subtle gradient
+-- Animated space background with stars
 local bg = Instance.new("Frame", frame)
 bg.Size = UDim2.new(1, 0, 1, 0)
-bg.BackgroundColor3 = Color3.fromRGB(8, 12, 25)
+bg.BackgroundColor3 = Color3.fromRGB(5, 8, 20)
 bg.BackgroundTransparency = 1
 bg.ZIndex = 0
 
--- Subtle gradient background
+-- Multiple gradient layers for depth
 local bgGradient = Instance.new("UIGradient", bg)
 bgGradient.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(12, 18, 35)),
-    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(8, 12, 25)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(15, 22, 40))
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(15, 25, 50)),
+    ColorSequenceKeypoint.new(0.3, Color3.fromRGB(8, 15, 35)),
+    ColorSequenceKeypoint.new(0.7, Color3.fromRGB(5, 8, 20)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 30, 60))
 })
-bgGradient.Rotation = 135
+bgGradient.Rotation = 45
 
-TweenService:Create(bg, TweenInfo.new(0.6, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundTransparency = 0.2}):Play()
+TweenService:Create(bg, TweenInfo.new(0.8, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundTransparency = 0}):Play()
 
--- Simple loading dots animation
-local loadingContainer = Instance.new("Frame", frame)
-loadingContainer.Size = UDim2.new(0, 100, 0, 20)
-loadingContainer.AnchorPoint = Vector2.new(0.5, 0.5)
-loadingContainer.Position = UDim2.new(0.5, 0, 0.75, 0)
-loadingContainer.BackgroundTransparency = 1
-loadingContainer.ZIndex = 3
-
--- Create 3 loading dots
-local dots = {}
-for i = 1, 3 do
-    local dot = Instance.new("Frame", loadingContainer)
-    dot.Size = UDim2.new(0, 8, 0, 8)
-    dot.Position = UDim2.new(0, (i-1) * 25 + 20, 0.5, -4)
-    dot.BackgroundColor3 = Color3.fromRGB(100, 170, 255)
-    dot.BackgroundTransparency = 0.7
-    
-    local corner = Instance.new("UICorner", dot)
-    corner.CornerRadius = UDim.new(1, 0)
-    
-    table.insert(dots, dot)
-end
-
--- Animate loading dots
+-- Animated rotating gradient
 task.spawn(function()
     while screenGui.Parent do
-        for i, dot in ipairs(dots) do
-            task.spawn(function()
-                TweenService:Create(dot, TweenInfo.new(0.4, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), 
-                    {BackgroundTransparency = 0.2, Size = UDim2.new(0, 12, 0, 12), Position = UDim2.new(0, (i-1) * 25 + 18, 0.5, -6)}):Play()
-                task.wait(0.4)
-                TweenService:Create(dot, TweenInfo.new(0.4, Enum.EasingStyle.Sine, Enum.EasingDirection.In), 
-                    {BackgroundTransparency = 0.7, Size = UDim2.new(0, 8, 0, 8), Position = UDim2.new(0, (i-1) * 25 + 20, 0.5, -4)}):Play()
-            end)
-            task.wait(0.2)
+        TweenService:Create(bgGradient, TweenInfo.new(8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Rotation = bgGradient.Rotation + 360}):Play()
+        task.wait(8)
+    end
+end)
+
+-- Create animated stars
+local starsContainer = Instance.new("Frame", frame)
+starsContainer.Size = UDim2.new(1, 0, 1, 0)
+starsContainer.BackgroundTransparency = 1
+starsContainer.ZIndex = 1
+
+local stars = {}
+for i = 1, 50 do
+    local star = Instance.new("Frame", starsContainer)
+    star.Size = UDim2.new(0, math.random(1, 3), 0, math.random(1, 3))
+    star.Position = UDim2.new(math.random(), 0, math.random(), 0)
+    star.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    star.BackgroundTransparency = math.random(30, 80) / 100
+    star.BorderSizePixel = 0
+    
+    local corner = Instance.new("UICorner", star)
+    corner.CornerRadius = UDim.new(1, 0)
+    
+    table.insert(stars, star)
+    
+    -- Animate star twinkling
+    task.spawn(function()
+        while screenGui.Parent do
+            local twinkle = TweenService:Create(star, TweenInfo.new(math.random(1, 3), Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+                BackgroundTransparency = math.random(10, 90) / 100
+            })
+            twinkle:Play()
+            task.wait(math.random(1, 4))
         end
+    end)
+end
+
+-- Create UFO/Alien spaceship
+local ufoContainer = Instance.new("Frame", frame)
+ufoContainer.Size = UDim2.new(0, 120, 0, 60)
+ufoContainer.AnchorPoint = Vector2.new(0.5, 0.5)
+ufoContainer.Position = UDim2.new(-0.2, 0, 0.3, 0)
+ufoContainer.BackgroundTransparency = 1
+ufoContainer.ZIndex = 4
+
+-- UFO Body
+local ufoBody = Instance.new("Frame", ufoContainer)
+ufoBody.Size = UDim2.new(0, 80, 0, 25)
+ufoBody.AnchorPoint = Vector2.new(0.5, 0.5)
+ufoBody.Position = UDim2.new(0.5, 0, 0.6, 0)
+ufoBody.BackgroundColor3 = Color3.fromRGB(150, 200, 255)
+ufoBody.BorderSizePixel = 0
+
+local ufoBodyCorner = Instance.new("UICorner", ufoBody)
+ufoBodyCorner.CornerRadius = UDim.new(0, 15)
+
+local ufoBodyGradient = Instance.new("UIGradient", ufoBody)
+ufoBodyGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(200, 230, 255)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(120, 180, 255)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(80, 140, 220))
+})
+ufoBodyGradient.Rotation = 90
+
+-- UFO Dome
+local ufoDome = Instance.new("Frame", ufoContainer)
+ufoDome.Size = UDim2.new(0, 50, 0, 30)
+ufoDome.AnchorPoint = Vector2.new(0.5, 0.5)
+ufoDome.Position = UDim2.new(0.5, 0, 0.4, 0)
+ufoDome.BackgroundColor3 = Color3.fromRGB(100, 255, 150)
+ufoDome.BackgroundTransparency = 0.3
+ufoDome.BorderSizePixel = 0
+
+local ufoDomeCorner = Instance.new("UICorner", ufoDome)
+ufoDomeCorner.CornerRadius = UDim.new(1, 0)
+
+-- UFO Lights
+local lights = {}
+for i = 1, 5 do
+    local light = Instance.new("Frame", ufoContainer)
+    light.Size = UDim2.new(0, 6, 0, 6)
+    light.Position = UDim2.new(0.2 + (i-1) * 0.15, 0, 0.75, 0)
+    light.BackgroundColor3 = Color3.fromRGB(255, 255, 100)
+    light.BorderSizePixel = 0
+    
+    local lightCorner = Instance.new("UICorner", light)
+    lightCorner.CornerRadius = UDim.new(1, 0)
+    
+    table.insert(lights, light)
+end
+
+-- Animate UFO lights
+task.spawn(function()
+    while screenGui.Parent do
+        for i, light in ipairs(lights) do
+            task.spawn(function()
+                TweenService:Create(light, TweenInfo.new(0.3, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
+                    BackgroundTransparency = 0,
+                    Size = UDim2.new(0, 10, 0, 10)
+                }):Play()
+                task.wait(0.3)
+                TweenService:Create(light, TweenInfo.new(0.3, Enum.EasingStyle.Sine, Enum.EasingDirection.In), {
+                    BackgroundTransparency = 0.7,
+                    Size = UDim2.new(0, 6, 0, 6)
+                }):Play()
+            end)
+            task.wait(0.1)
+        end
+        task.wait(1)
+    end
+end)
+
+-- Animate UFO movement across screen
+local ufoMoveTween = TweenService:Create(ufoContainer, TweenInfo.new(8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+    Position = UDim2.new(1.2, 0, 0.25, 0)
+})
+ufoMoveTween:Play()
+
+-- Add floating animation to UFO
+task.spawn(function()
+    while screenGui.Parent do
+        TweenService:Create(ufoContainer, TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+            Position = UDim2.new(ufoContainer.Position.X.Scale, 0, ufoContainer.Position.Y.Scale + 0.02, 0)
+        }):Play()
+        task.wait(2)
+        TweenService:Create(ufoContainer, TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+            Position = UDim2.new(ufoContainer.Position.X.Scale, 0, ufoContainer.Position.Y.Scale - 0.02, 0)
+        }):Play()
+        task.wait(2)
+    end
+end)
+
+-- Create Alien Character
+local alienContainer = Instance.new("Frame", frame)
+alienContainer.Size = UDim2.new(0, 60, 0, 80)
+alienContainer.AnchorPoint = Vector2.new(0.5, 0.5)
+alienContainer.Position = UDim2.new(0.15, 0, 0.7, 0)
+alienContainer.BackgroundTransparency = 1
+alienContainer.ZIndex = 5
+
+-- Alien Head
+local alienHead = Instance.new("Frame", alienContainer)
+alienHead.Size = UDim2.new(0, 40, 0, 50)
+alienHead.AnchorPoint = Vector2.new(0.5, 0)
+alienHead.Position = UDim2.new(0.5, 0, 0, 0)
+alienHead.BackgroundColor3 = Color3.fromRGB(150, 255, 150)
+alienHead.BorderSizePixel = 0
+
+local alienHeadCorner = Instance.new("UICorner", alienHead)
+alienHeadCorner.CornerRadius = UDim.new(0, 20)
+
+-- Alien Eyes
+local leftEye = Instance.new("Frame", alienHead)
+leftEye.Size = UDim2.new(0, 8, 0, 12)
+leftEye.Position = UDim2.new(0.2, 0, 0.3, 0)
+leftEye.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+leftEye.BorderSizePixel = 0
+
+local leftEyeCorner = Instance.new("UICorner", leftEye)
+leftEyeCorner.CornerRadius = UDim.new(1, 0)
+
+local rightEye = Instance.new("Frame", alienHead)
+rightEye.Size = UDim2.new(0, 8, 0, 12)
+rightEye.Position = UDim2.new(0.7, 0, 0.3, 0)
+rightEye.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+rightEye.BorderSizePixel = 0
+
+local rightEyeCorner = Instance.new("UICorner", rightEye)
+rightEyeCorner.CornerRadius = UDim.new(1, 0)
+
+-- Alien Body
+local alienBody = Instance.new("Frame", alienContainer)
+alienBody.Size = UDim2.new(0, 25, 0, 30)
+alienBody.AnchorPoint = Vector2.new(0.5, 0)
+alienBody.Position = UDim2.new(0.5, 0, 0.6, 0)
+alienBody.BackgroundColor3 = Color3.fromRGB(120, 220, 120)
+alienBody.BorderSizePixel = 0
+
+local alienBodyCorner = Instance.new("UICorner", alienBody)
+alienBodyCorner.CornerRadius = UDim.new(0, 8)
+
+-- Animate alien blinking
+task.spawn(function()
+    while screenGui.Parent do
+        task.wait(math.random(2, 5))
+        TweenService:Create(leftEye, TweenInfo.new(0.1), {Size = UDim2.new(0, 8, 0, 2)}):Play()
+        TweenService:Create(rightEye, TweenInfo.new(0.1), {Size = UDim2.new(0, 8, 0, 2)}):Play()
+        task.wait(0.1)
+        TweenService:Create(leftEye, TweenInfo.new(0.1), {Size = UDim2.new(0, 8, 0, 12)}):Play()
+        TweenService:Create(rightEye, TweenInfo.new(0.1), {Size = UDim2.new(0, 8, 0, 12)}):Play()
+    end
+end)
+
+-- Animate alien movement
+local alienMoveTween = TweenService:Create(alienContainer, TweenInfo.new(10, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+    Position = UDim2.new(0.85, 0, 0.65, 0)
+})
+alienMoveTween:Play()
+
+-- Add bouncing animation to alien
+task.spawn(function()
+    while screenGui.Parent do
+        TweenService:Create(alienContainer, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+            Position = UDim2.new(alienContainer.Position.X.Scale, 0, alienContainer.Position.Y.Scale - 0.03, 0)
+        }):Play()
+        task.wait(0.8)
+        TweenService:Create(alienContainer, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+            Position = UDim2.new(alienContainer.Position.X.Scale, 0, alienContainer.Position.Y.Scale + 0.03, 0)
+        }):Play()
         task.wait(0.8)
     end
 end)
 
+-- Enhanced loading animation with particles
+local loadingContainer = Instance.new("Frame", frame)
+loadingContainer.Size = UDim2.new(0, 200, 0, 40)
+loadingContainer.AnchorPoint = Vector2.new(0.5, 0.5)
+loadingContainer.Position = UDim2.new(0.5, 0, 0.8, 0)
+loadingContainer.BackgroundTransparency = 1
+loadingContainer.ZIndex = 3
+
+-- Create energy particles
+local particles = {}
+for i = 1, 8 do
+    local particle = Instance.new("Frame", loadingContainer)
+    particle.Size = UDim2.new(0, 4, 0, 4)
+    particle.Position = UDim2.new(0, (i-1) * 25 + 10, 0.5, -2)
+    particle.BackgroundColor3 = Color3.fromRGB(100, 255, 200)
+    particle.BackgroundTransparency = 0.8
+    particle.BorderSizePixel = 0
+    
+    local corner = Instance.new("UICorner", particle)
+    corner.CornerRadius = UDim.new(1, 0)
+    
+    table.insert(particles, particle)
+end
+
+-- Animate energy particles
+task.spawn(function()
+    while screenGui.Parent do
+        for i, particle in ipairs(particles) do
+            task.spawn(function()
+                TweenService:Create(particle, TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
+                    BackgroundTransparency = 0.1,
+                    Size = UDim2.new(0, 8, 0, 8),
+                    Position = UDim2.new(0, (i-1) * 25 + 8, 0.5, -4),
+                    BackgroundColor3 = Color3.fromRGB(150, 255, 255)
+                }):Play()
+                task.wait(0.5)
+                TweenService:Create(particle, TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.In), {
+                    BackgroundTransparency = 0.8,
+                    Size = UDim2.new(0, 4, 0, 4),
+                    Position = UDim2.new(0, (i-1) * 25 + 10, 0.5, -2),
+                    BackgroundColor3 = Color3.fromRGB(100, 255, 200)
+                }):Play()
+            end)
+            task.wait(0.15)
+        end
+        task.wait(1)
+    end
+end)
+
+-- Enhanced Avantrix text with holographic effect
 local word = "Avantrix"
 local letters = {}
 
 local function tweenOutAndDestroy()
-    -- Fade out letters with stagger
+    -- Fade out letters with advanced stagger
     for i, label in ipairs(letters) do
         task.spawn(function()
-            TweenService:Create(label, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.In), 
-                {TextTransparency = 1, TextSize = 30, Position = UDim2.new(0.5, (i - (#word / 2 + 0.5)) * 65, 0.5, -20)}):Play()
+            TweenService:Create(label, TweenInfo.new(0.6, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+                TextTransparency = 1,
+                TextSize = 20,
+                Position = UDim2.new(0.5, (i - (#word / 2 + 0.5)) * 65, 0.5, -50),
+                Rotation = math.random(-30, 30)
+            }):Play()
         end)
-        task.wait(0.08)
+        task.wait(0.1)
     end
     
-    -- Fade out loading dots
-    for _, dot in ipairs(dots) do
-        TweenService:Create(dot, TweenInfo.new(0.5), {BackgroundTransparency = 1}):Play()
+    -- Fade out all elements
+    for _, particle in ipairs(particles) do
+        TweenService:Create(particle, TweenInfo.new(0.8), {BackgroundTransparency = 1}):Play()
     end
     
-    -- Fade out background and blur
-    TweenService:Create(bg, TweenInfo.new(0.6, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {BackgroundTransparency = 1}):Play()
-    TweenService:Create(blur, TweenInfo.new(0.6, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {Size = 0}):Play()
+    TweenService:Create(ufoContainer, TweenInfo.new(0.8), {Position = UDim2.new(1.5, 0, 0.25, 0)}):Play()
+    TweenService:Create(alienContainer, TweenInfo.new(0.8), {Position = UDim2.new(1.2, 0, 0.65, 0)}):Play()
     
-    task.wait(0.8)
+    -- Fade out background effects
+    TweenService:Create(bg, TweenInfo.new(1, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {BackgroundTransparency = 1}):Play()
+    TweenService:Create(blur, TweenInfo.new(1, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {Size = 0}):Play()
+    TweenService:Create(colorCorrection, TweenInfo.new(1, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+        Brightness = 0,
+        Contrast = 0,
+        Saturation = 0
+    }):Play()
+    
+    for _, star in ipairs(stars) do
+        TweenService:Create(star, TweenInfo.new(1), {BackgroundTransparency = 1}):Play()
+    end
+    
+    task.wait(1.2)
     screenGui:Destroy()
     blur:Destroy()
+    colorCorrection:Destroy()
     
     -- Initialize Anti-AFK system after loader
     FlagsManager:InitAntiAFK()
 end
 
--- Create letters with enhanced but simple animation
+-- Create holographic letters with advanced effects
 for i = 1, #word do
     local char = word:sub(i, i)
 
@@ -125,45 +380,74 @@ for i = 1, #word do
     label.Text = char
     label.Font = Enum.Font.GothamBlack
     label.TextColor3 = Color3.new(1, 1, 1)
-    label.TextStrokeTransparency = 0.6
-    label.TextStrokeColor3 = Color3.fromRGB(40, 80, 140)
+    label.TextStrokeTransparency = 0.3
+    label.TextStrokeColor3 = Color3.fromRGB(0, 255, 255)
     label.TextTransparency = 1
     label.TextScaled = false
-    label.TextSize = 20
-    label.Size = UDim2.new(0, 60, 0, 60)
+    label.TextSize = 15
+    label.Size = UDim2.new(0, 70, 0, 70)
     label.AnchorPoint = Vector2.new(0.5, 0.5)
-    label.Position = UDim2.new(0.5, (i - (#word / 2 + 0.5)) * 65, 0.5, 20)
+    label.Position = UDim2.new(0.5, (i - (#word / 2 + 0.5)) * 75, 0.5, 30)
     label.BackgroundTransparency = 1
     label.Parent = frame
-    label.ZIndex = 2
+    label.ZIndex = 6
 
-    -- Enhanced gradient with more colors
+    -- Holographic gradient effect
     local gradient = Instance.new("UIGradient")
     gradient.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(120, 190, 255)),
-        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(80, 150, 255)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(50, 110, 200))
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 255, 255)),
+        ColorSequenceKeypoint.new(0.3, Color3.fromRGB(100, 200, 255)),
+        ColorSequenceKeypoint.new(0.7, Color3.fromRGB(255, 100, 255)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 255, 100))
     })
-    gradient.Rotation = 90
+    gradient.Rotation = 45
     gradient.Parent = label
 
-    -- Smooth entrance animation with bounce
-    local tweenIn = TweenService:Create(label, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), 
-        {TextTransparency = 0, TextSize = 68, Position = UDim2.new(0.5, (i - (#word / 2 + 0.5)) * 65, 0.5, 0)})
+    -- Animate gradient rotation
+    task.spawn(function()
+        while label.Parent do
+            TweenService:Create(gradient, TweenInfo.new(3, Enum.EasingStyle.Linear), {Rotation = gradient.Rotation + 360}):Play()
+            task.wait(3)
+        end
+    end)
+
+    -- Advanced entrance animation with multiple effects
+    local tweenIn = TweenService:Create(label, TweenInfo.new(0.8, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        TextTransparency = 0,
+        TextSize = 85,
+        Position = UDim2.new(0.5, (i - (#word / 2 + 0.5)) * 75, 0.5, 0)
+    })
     tweenIn:Play()
 
-    -- Add subtle floating animation after entrance
+    -- Add glitch effect
     tweenIn.Completed:Connect(function()
-        local floatTween = TweenService:Create(label, TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), 
-            {Position = UDim2.new(0.5, (i - (#word / 2 + 0.5)) * 65, 0.5, math.random(-3, 3))})
+        task.spawn(function()
+            while label.Parent do
+                -- Random glitch effect
+                if math.random() < 0.1 then
+                    local originalPos = label.Position
+                    TweenService:Create(label, TweenInfo.new(0.05), {
+                        Position = UDim2.new(originalPos.X.Scale + math.random(-5, 5)/1000, 0, originalPos.Y.Scale + math.random(-5, 5)/1000, 0)
+                    }):Play()
+                    task.wait(0.05)
+                    TweenService:Create(label, TweenInfo.new(0.05), {Position = originalPos}):Play()
+                end
+                task.wait(0.1)
+            end
+        end)
+        
+        -- Floating animation
+        local floatTween = TweenService:Create(label, TweenInfo.new(3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
+            Position = UDim2.new(0.5, (i - (#word / 2 + 0.5)) * 75, 0.5, math.random(-8, 8))
+        })
         floatTween:Play()
     end)
 
     table.insert(letters, label)
-    task.wait(0.2)
+    task.wait(0.25)
 end
 
-task.wait(2.5)
+task.wait(4)
 tweenOutAndDestroy()
 
 -- Anti-AFK System
