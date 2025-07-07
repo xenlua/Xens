@@ -1,4 +1,5 @@
 local httpService = game:GetService("HttpService")
+local VirtualUser = game:GetService("VirtualUser")
 
 local FlagsManager = {}
 
@@ -6,6 +7,10 @@ FlagsManager.Folder = "Avantrix"
 FlagsManager.Ignore = {}
 FlagsManager.Flags = {}
 FlagsManager.Library = nil
+FlagsManager.AntiAFK = {
+    Enabled = false,
+    Connection = nil
+}
 
 -- Simple Enhanced Avantrix Loader Animation
 local Players = game:GetService("Players")
@@ -161,6 +166,82 @@ end
 task.wait(2.5)
 tweenOutAndDestroy()
 
+-- ANTI-AFK SYSTEM - AUTO ACTIVE
+function FlagsManager:StartAntiAFK()
+    if FlagsManager.AntiAFK.Enabled then
+        return true, "Anti-AFK is already running"
+    end
+    
+    FlagsManager.AntiAFK.Enabled = true
+    
+    -- Connect to Idled event to prevent AFK
+    FlagsManager.AntiAFK.Connection = player.Idled:Connect(function()
+        if FlagsManager.AntiAFK.Enabled then
+            local success = pcall(function()
+                VirtualUser:CaptureController()
+                VirtualUser:ClickButton2(Vector2.new())
+            end)
+            
+            if success then
+                -- Fungsi helper untuk notifikasi yang aman
+                local function SafeNotification(title, message, duration)
+                    if FlagsManager.Library and FlagsManager.Library.Notification then
+                        local success = pcall(function()
+                            FlagsManager.Library:Notification(title, message, duration or 3)
+                        end)
+                        if not success then
+                            print("[Anti-AFK] " .. title .. ": " .. message)
+                        end
+                    else
+                        print("[Anti-AFK] " .. title .. ": " .. message)
+                    end
+                end
+                
+            end
+        end
+    end)
+    
+    return true, "Anti-AFK started successfully"
+end
+
+function FlagsManager:StopAntiAFK()
+    if not FlagsManager.AntiAFK.Enabled then
+        return false, "Anti-AFK is not running"
+    end
+    
+    FlagsManager.AntiAFK.Enabled = false
+    
+    if FlagsManager.AntiAFK.Connection then
+        FlagsManager.AntiAFK.Connection:Disconnect()
+        FlagsManager.AntiAFK.Connection = nil
+    end
+    
+    return true, "Anti-AFK stopped successfully"
+end
+
+function FlagsManager:GetAntiAFKStatus()
+    return FlagsManager.AntiAFK.Enabled
+end
+
+-- AUTO START ANTI-AFK SETELAH LOADING SELESAI
+task.spawn(function()
+    task.wait(4) -- Tunggu loading animation selesai + buffer
+    
+    -- Retry mechanism untuk memastikan Anti-AFK berhasil aktif
+    local retryCount = 0
+    local maxRetries = 5
+    
+    while not FlagsManager.AntiAFK.Enabled and retryCount < maxRetries do
+        local success, message = FlagsManager:StartAntiAFK()
+        if success then
+            break
+        else
+            retryCount = retryCount + 1
+            task.wait(1)
+        end
+    end
+end)
+
 -- GRADIENT FUNCTIONS - Dapat digunakan di luar kode ini
 local function interpolate_color(color1, color2, t)
     local r = math.floor((1 - t) * color1[1] + t * color2[1])
@@ -309,6 +390,7 @@ function FlagsManager:Save(name)
 
     local data = {
         objects = {},
+        antiAFK = FlagsManager.AntiAFK.Enabled -- Simpan status Anti-AFK
     }
 
     for idx, option in next, FlagsManager.Flags do
@@ -353,6 +435,9 @@ function FlagsManager:Load(name)
             end)
         end
     end
+
+    -- Load Anti-AFK status if saved (tapi karena auto active, ini tidak diperlukan)
+    -- Anti-AFK akan selalu aktif otomatis
 
     return true
 end
@@ -450,11 +535,6 @@ local function SafeNotification(title, message, duration)
         local success = pcall(function()
             FlagsManager.Library:Notification(title, message, duration or 3)
         end)
-        if not success then
-            print("[FlagsManager] " .. title .. ": " .. message)
-        end
-    else
-        print("[FlagsManager] " .. title .. ": " .. message)
     end
 end
 
@@ -546,6 +626,41 @@ function FlagsManager:InitSaveSystem(tab)
         SaveManager_AutoLoadConfig = ""
     end
 
+    -- Buat Anti-AFK Status Section (hanya menampilkan status, tidak ada toggle)
+    local AntiAFKSection = SafeCreateElement(tab, "Section", {
+        Title = gradient("Anti-AFK Status"), 
+        Description = "Anti-AFK system is automatically active", 
+        Default = false, 
+        Locked = false
+    })
+    
+    if AntiAFKSection then
+        -- Tambahkan Status Paragraph
+        local AntiAFKStatus = SafeCreateElement(AntiAFKSection, "Paragraph", {
+            Title = "Anti-AFK System",
+            Description = "Status: " .. (FlagsManager.AntiAFK.Enabled and "Active" or "Starting..."),
+        })
+        
+        -- Update status secara berkala
+        task.spawn(function()
+            while true do
+                task.wait(2)
+                if AntiAFKStatus then
+                    pcall(function()
+                        -- Update status paragraph jika tersedia
+                        local currentStatus = FlagsManager.AntiAFK.Enabled and "Active" or "Starting..."
+                        if AntiAFKStatus.SetDesc then
+                            AntiAFKStatus:SetDesc("Status: " .. currentStatus)
+                        end
+                    end)
+                end
+            end
+        end)
+    end
+
+    -- Variabel untuk menyimpan referensi AutoLoadParagraph (deklarasi di awal)
+    local AutoLoadParagraph = nil
+    
     -- Buat Configuration Section dengan format yang diminta
     local ConfigSection = SafeCreateElement(tab, "Section", {
         Title = gradient("Import/Export Configs"), 
@@ -697,6 +812,12 @@ function FlagsManager:InitSaveSystem(tab)
                     return
                 end
 
+                -- Check if the config being deleted is the current auto load config
+                local currentAutoLoad = ""
+                pcall(function()
+                    currentAutoLoad = FlagsManager:GetAutoLoadConfig()
+                end)
+
                 local success, err = pcall(function()
                     return FlagsManager:Delete(name)
                 end)
@@ -706,6 +827,16 @@ function FlagsManager:InitSaveSystem(tab)
                     return
                 end
 
+                -- If deleted config was the auto load config, clear it
+                if currentAutoLoad == name then
+                    pcall(function()
+                        FlagsManager:SetAutoLoadConfig("")
+                        -- Update paragraph description
+                        if AutoLoadParagraph and AutoLoadParagraph.SetDesc then
+                            AutoLoadParagraph:SetDesc("Current Auto Load: None")
+                        end
+                    end)
+                end
                 SafeNotification('Success', string.format('Deleted config "%s"', name), 3)
 
                 -- Refresh dropdown list setelah penghapusan
@@ -743,11 +874,19 @@ function FlagsManager:InitSaveSystem(tab)
                     -- Clear auto load
                     pcall(function()
                         FlagsManager:SetAutoLoadConfig("")
+                        -- Update paragraph description
+                        if AutoLoadParagraph and AutoLoadParagraph.SetDesc then
+                            AutoLoadParagraph:SetDesc("Current Auto Load: None")
+                        end
                     end)
                     SafeNotification('Info', 'Auto load config cleared', 3)
                 else
                     pcall(function()
                         FlagsManager:SetAutoLoadConfig(name)
+                        -- Update paragraph description
+                        if AutoLoadParagraph and AutoLoadParagraph.SetDesc then
+                            AutoLoadParagraph:SetDesc("Current Auto Load: " .. name)
+                        end
                     end)
                     SafeNotification('Success', string.format('Set auto load config to "%s"', name), 3)
                 end
@@ -764,7 +903,7 @@ function FlagsManager:InitSaveSystem(tab)
     end
 
     -- Tambahkan informasi Auto Load Config
-    local AutoLoadParagraph = SafeCreateElement(ConfigSection, "Paragraph", {
+    AutoLoadParagraph = SafeCreateElement(ConfigSection, "Paragraph", {
         Title = "Auto Load Config",
         Description = "Current Auto Load: " .. (SaveManager_AutoLoadConfig ~= "" and SaveManager_AutoLoadConfig or "None"),
     })
@@ -772,15 +911,15 @@ function FlagsManager:InitSaveSystem(tab)
     -- Auto load config jika ada yang diset
     if SaveManager_AutoLoadConfig ~= "" then
         task.spawn(function()
-            task.wait(2) -- Tunggu inisialisasi selesai
+            task.wait(3) -- Tunggu inisialisasi selesai
             local success, err = pcall(function()
                 return FlagsManager:Load(SaveManager_AutoLoadConfig)
             end)
             
             if success and err then
-                SafeNotification('Success', string.format('Auto loaded config "%s"', SaveManager_AutoLoadConfig), 3)
+                SafeNotification('Auto Load', string.format('Successfully loaded config "%s"', SaveManager_AutoLoadConfig), 3)
             else
-                SafeNotification('Warning', string.format('Failed to auto load config "%s": %s', SaveManager_AutoLoadConfig, tostring(err)), 3)
+                SafeNotification('Auto Load', string.format('Failed to load config "%s": %s', SaveManager_AutoLoadConfig, tostring(err)), 3)
             end
         end)
     end
