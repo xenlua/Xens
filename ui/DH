@@ -2,9 +2,6 @@
 local lib = loadstring(game:HttpGet("https://raw.githubusercontent.com/xenlua/Xens/refs/heads/main/ui/Avantrix.lua"))() 
 local FlagsManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/xenlua/Xens/refs/heads/main/ui/Flags"))()
 
--- Load Auto Load System from GitHub
-loadstring(game:HttpGet("https://raw.githubusercontent.com/xenlua/Xens/refs/heads/main/ui/DH"))()
-
 local LPH_JIT_MAX = function(...) return(...) end;
 local LPH_NO_VIRTUALIZE = function(...) return(...) end;
 local LPH_CRASH = function(...) while task.wait() do game:GetService("ScriptContext"):SetTimeout(math.huge);while true do while true do while true do while true do while true do while true do while true do while true do print("noob") end end end end end end end end end end;
@@ -81,7 +78,6 @@ var.WelcomeParagraph:SetTitle(gradient("Welcome to Avantrix Hub!"))
 var.WelcomeParagraph:SetDesc([[<font color="rgb(255,255,255)">NEWS:</font>
 [/] Added Pet Management Tab
 [/] Added Auto Level Up for Equipped Pet
-[/] Added Auto Load after Play Again
 [/] All features working properly
 
 <b><font color='rgb(255, 255, 255)'>----------------------------------------[Features]--------------------------------------</font></b>
@@ -93,7 +89,6 @@ var.WelcomeParagraph:SetDesc([[<font color="rgb(255,255,255)">NEWS:</font>
 • Auto Farm Dungeon with teleportation
 • Auto Farm No Teleport (safer option)
 • Auto Start and Play Again
-• Auto Load after Play Again
 • Item and Pet selling by rarity
 • Pet Level Up (Equipped & Manual)
 • Anti-AFK protection
@@ -137,7 +132,6 @@ local run_service = cloneref(game:GetService("RunService"))
 local killAuraRunning = false
 local autoStartRunning = false
 local autoPlayAgainRunning = false
-local autoLoadAfterPlayAgain = false
 local goto_closest = false
 local autoFarmNoTeleport = false
 local autoOpenPetChestRunning = false
@@ -306,22 +300,6 @@ sections.MainFarm:AddToggle("AutoPlayAgain", {
                     wait(0.1)
                 end
             end)
-        end
-    end,
-})
-
--- SIMPLE AUTO LOAD - LANGSUNG JALAN TANPA SETTING
-sections.MainFarm:AddToggle("AutoLoadAfterPlayAgain", {
-    Title = "Auto Load After Play Again",
-    Default = false,
-    Description = "Otomatis masuk dungeon lagi setelah play again (pake setting yang sama)",
-    Callback = function(value)
-        autoLoadAfterPlayAgain = value
-        if value then
-            -- Langsung jalanin auto load tanpa ribet
-            print("🚀 Auto Load AKTIF! Bakal otomatis masuk dungeon lagi!")
-        else
-            print("❌ Auto Load MATI!")
         end
     end,
 })
