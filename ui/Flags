@@ -1,4 +1,5 @@
 local httpService = game:GetService("HttpService")
+local VirtualUser = game:GetService("VirtualUser")
 
 local FlagsManager = {}
 
@@ -6,6 +7,7 @@ FlagsManager.Folder = "Avantrix"
 FlagsManager.Ignore = {}
 FlagsManager.Flags = {}
 FlagsManager.Library = nil
+FlagsManager.AntiAFK = false
 
 -- Simple Enhanced Avantrix Loader Animation
 local Players = game:GetService("Players")
@@ -110,6 +112,9 @@ local function tweenOutAndDestroy()
     task.wait(0.8)
     screenGui:Destroy()
     blur:Destroy()
+    
+    -- Initialize Anti-AFK system after loader
+    FlagsManager:InitAntiAFK()
 end
 
 -- Create letters with enhanced but simple animation
@@ -160,6 +165,43 @@ end
 
 task.wait(2.5)
 tweenOutAndDestroy()
+
+-- Anti-AFK System
+function FlagsManager:InitAntiAFK()
+    if FlagsManager.AntiAFK then
+        return -- Already initialized
+    end
+    
+    FlagsManager.AntiAFK = true
+    
+    -- Show notification
+    FlagsManager:SafeNotification('Anti-AFK', 'ANTI AFK AUTO LOAD ACTIVE', 3)
+    
+    -- Start Anti-AFK system
+    task.spawn(function()
+        while FlagsManager.AntiAFK do
+            -- Capture controller and simulate mouse click to prevent AFK
+            VirtualUser:CaptureController()
+            VirtualUser:ClickButton2(Vector2.new())
+            
+            -- Wait 60 seconds before next anti-AFK action
+            task.wait(60)
+        end
+    end)
+    
+    -- Handle player idle event
+    player.Idled:Connect(function()
+        if FlagsManager.AntiAFK then
+            VirtualUser:CaptureController()
+            VirtualUser:ClickButton2(Vector2.new())
+        end
+    end)
+end
+
+function FlagsManager:DisableAntiAFK()
+    FlagsManager.AntiAFK = false
+    FlagsManager:SafeNotification('Anti-AFK', 'Anti-AFK system disabled', 2)
+end
 
 -- GRADIENT FUNCTIONS - Dapat digunakan di luar kode ini
 local function interpolate_color(color1, color2, t)
@@ -445,7 +487,7 @@ function FlagsManager:SetLibrary(library)
 end
 
 -- Fungsi helper untuk notifikasi yang aman
-local function SafeNotification(title, message, duration)
+function FlagsManager:SafeNotification(title, message, duration)
     if FlagsManager.Library and FlagsManager.Library.Notification then
         local success = pcall(function()
             FlagsManager.Library:Notification(title, message, duration or 3)
@@ -479,6 +521,8 @@ local function SafeCreateElement(parent, elementType, config)
             return parent:AddButton(config)
         elseif elementType == "Paragraph" then
             return parent:AddParagraph(config)
+        elseif elementType == "Toggle" then
+            return parent:AddToggle(config.Flag or "TempToggle", config)
         else
             warn("SafeCreateElement: Unknown element type: " .. tostring(elementType))
             return nil
@@ -497,28 +541,28 @@ function FlagsManager:InitSaveSystem(tab)
     -- Validasi parameter utama dengan pengecekan yang lebih ketat
     if not tab then
         warn("FlagsManager:InitSaveSystem - tab parameter is required")
-        SafeNotification('Error', 'Failed to initialize save system: tab parameter is nil', 5)
+        FlagsManager:SafeNotification('Error', 'Failed to initialize save system: tab parameter is nil', 5)
         return false
     end
     
     -- Cek apakah tab memiliki method yang diperlukan
     if type(tab.AddSection) ~= "function" then
         warn("FlagsManager:InitSaveSystem - tab does not have AddSection method")
-        SafeNotification('Error', 'Invalid tab object provided', 5)
+        FlagsManager:SafeNotification('Error', 'Invalid tab object provided', 5)
         return false
     end
     
     -- Validasi Library
     if not FlagsManager.Library then
         warn("FlagsManager:InitSaveSystem - Library is not set. Call SetLibrary first.")
-        SafeNotification('Error', 'Library not initialized. Call SetLibrary first.', 5)
+        FlagsManager:SafeNotification('Error', 'Library not initialized. Call SetLibrary first.', 5)
         return false
     end
     
     -- Validasi Flags
     if not FlagsManager.Flags then
         warn("FlagsManager:InitSaveSystem - Flags is not set. Library may not be properly initialized.")
-        SafeNotification('Error', 'Flags not initialized properly.', 5)
+        FlagsManager:SafeNotification('Error', 'Flags not initialized properly.', 5)
         return false
     end
 
@@ -529,7 +573,7 @@ function FlagsManager:InitSaveSystem(tab)
     
     if not success then
         warn("FlagsManager:InitSaveSystem - Failed to build folder tree")
-        SafeNotification('Error', 'Failed to create folder structure', 5)
+        FlagsManager:SafeNotification('Error', 'Failed to create folder structure', 5)
         return false
     end
 
@@ -555,9 +599,24 @@ function FlagsManager:InitSaveSystem(tab)
     })
     
     if not ConfigSection then
-        SafeNotification('Error', 'Failed to create Configuration section', 5)
+        FlagsManager:SafeNotification('Error', 'Failed to create Configuration section', 5)
         return false
     end
+
+    -- Add Anti-AFK Toggle
+    local AntiAFKToggle = SafeCreateElement(ConfigSection, "Toggle", {
+        Flag = "AntiAFK",
+        Title = "Anti-AFK System",
+        Description = "Automatically prevent AFK detection",
+        Default = true,
+        Callback = function(value)
+            if value then
+                FlagsManager:InitAntiAFK()
+            else
+                FlagsManager:DisableAntiAFK()
+            end
+        end
+    })
 
     -- Tambahkan Textbox untuk nama config
     local ConfigNameTextbox = SafeCreateElement(ConfigSection, "Textbox", {
@@ -594,7 +653,7 @@ function FlagsManager:InitSaveSystem(tab)
     local SaveManagerGroupButton = SafeCreateElement(ConfigSection, "GroupButton")
     
     if not SaveManagerGroupButton then
-        SafeNotification('Error', 'Failed to create button group', 5)
+        FlagsManager:SafeNotification('Error', 'Failed to create button group', 5)
         return false
     end
 
@@ -607,7 +666,7 @@ function FlagsManager:InitSaveSystem(tab)
                 local name = SaveManager_ConfigName
 
                 if not name or name:gsub(" ", "") == "" then
-                    SafeNotification('Error', 'Please enter a valid config name', 3)
+                    FlagsManager:SafeNotification('Error', 'Please enter a valid config name', 3)
                     return
                 end
 
@@ -616,11 +675,11 @@ function FlagsManager:InitSaveSystem(tab)
                 end)
                 
                 if not success or not err then
-                    SafeNotification('Error', 'Failed to create config: ' .. tostring(err), 3)
+                    FlagsManager:SafeNotification('Error', 'Failed to create config: ' .. tostring(err), 3)
                     return
                 end
 
-                SafeNotification('Success', string.format('Created config "%s"', name), 3)
+                FlagsManager:SafeNotification('Success', string.format('Created config "%s"', name), 3)
 
                 -- Refresh dropdown list
                 pcall(function()
@@ -641,7 +700,7 @@ function FlagsManager:InitSaveSystem(tab)
                 end)
 
                 if not name or name == "" then
-                    SafeNotification('Error', 'Please select a config to load', 3)
+                    FlagsManager:SafeNotification('Error', 'Please select a config to load', 3)
                     return
                 end
 
@@ -650,11 +709,11 @@ function FlagsManager:InitSaveSystem(tab)
                 end)
                 
                 if not success or not err then
-                    SafeNotification('Error', 'Failed to load config: ' .. tostring(err), 3)
+                    FlagsManager:SafeNotification('Error', 'Failed to load config: ' .. tostring(err), 3)
                     return
                 end
 
-                SafeNotification('Success', string.format('Loaded config "%s"', name), 3)
+                FlagsManager:SafeNotification('Success', string.format('Loaded config "%s"', name), 3)
             end,
         },
         {
@@ -667,7 +726,7 @@ function FlagsManager:InitSaveSystem(tab)
                 end)
 
                 if not name or name == "" then
-                    SafeNotification('Error', 'Please select a config to save', 3)
+                    FlagsManager:SafeNotification('Error', 'Please select a config to save', 3)
                     return
                 end
 
@@ -676,11 +735,11 @@ function FlagsManager:InitSaveSystem(tab)
                 end)
                 
                 if not success or not err then
-                    SafeNotification('Error', 'Failed to save config: ' .. tostring(err), 3)
+                    FlagsManager:SafeNotification('Error', 'Failed to save config: ' .. tostring(err), 3)
                     return
                 end
 
-                SafeNotification('Success', string.format('Saved config "%s"', name), 3)
+                FlagsManager:SafeNotification('Success', string.format('Saved config "%s"', name), 3)
             end,
         },
         {
@@ -693,7 +752,7 @@ function FlagsManager:InitSaveSystem(tab)
                 end)
 
                 if not name or name == "" then
-                    SafeNotification('Error', 'Please select a config to delete', 3)
+                    FlagsManager:SafeNotification('Error', 'Please select a config to delete', 3)
                     return
                 end
 
@@ -702,11 +761,11 @@ function FlagsManager:InitSaveSystem(tab)
                 end)
                 
                 if not success or not err then
-                    SafeNotification('Error', 'Failed to delete config: ' .. tostring(err), 3)
+                    FlagsManager:SafeNotification('Error', 'Failed to delete config: ' .. tostring(err), 3)
                     return
                 end
 
-                SafeNotification('Success', string.format('Deleted config "%s"', name), 3)
+                FlagsManager:SafeNotification('Success', string.format('Deleted config "%s"', name), 3)
 
                 -- Refresh dropdown list setelah penghapusan
                 pcall(function()
@@ -727,7 +786,7 @@ function FlagsManager:InitSaveSystem(tab)
                         FlagsManager.Flags.SaveManager_ConfigurationList:Set("")
                     end
                 end)
-                SafeNotification('Info', 'Configuration list refreshed', 2)
+                FlagsManager:SafeNotification('Info', 'Configuration list refreshed', 2)
             end,
         },
         {
@@ -744,12 +803,12 @@ function FlagsManager:InitSaveSystem(tab)
                     pcall(function()
                         FlagsManager:SetAutoLoadConfig("")
                     end)
-                    SafeNotification('Info', 'Auto load config cleared', 3)
+                    FlagsManager:SafeNotification('Info', 'Auto load config cleared', 3)
                 else
                     pcall(function()
                         FlagsManager:SetAutoLoadConfig(name)
                     end)
-                    SafeNotification('Success', string.format('Set auto load config to "%s"', name), 3)
+                    FlagsManager:SafeNotification('Success', string.format('Set auto load config to "%s"', name), 3)
                 end
             end,
         }
@@ -778,14 +837,19 @@ function FlagsManager:InitSaveSystem(tab)
             end)
             
             if success and err then
-                SafeNotification('Success', string.format('Auto loaded config "%s"', SaveManager_AutoLoadConfig), 3)
+                FlagsManager:SafeNotification('Success', string.format('Auto loaded config "%s"', SaveManager_AutoLoadConfig), 3)
             else
-                SafeNotification('Warning', string.format('Failed to auto load config "%s": %s', SaveManager_AutoLoadConfig, tostring(err)), 3)
+                FlagsManager:SafeNotification('Warning', string.format('Failed to auto load config "%s": %s', SaveManager_AutoLoadConfig, tostring(err)), 3)
             end
         end)
     end
 
-    SafeNotification('Success', 'Save system initialized successfully', 2)
+    -- Initialize Anti-AFK by default
+    if FlagsManager.Flags.AntiAFK and FlagsManager.Flags.AntiAFK.Value then
+        FlagsManager:InitAntiAFK()
+    end
+
+    FlagsManager:SafeNotification('Success', 'Save system initialized successfully', 2)
     return true
 end
 
