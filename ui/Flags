@@ -9,6 +9,59 @@ FlagsManager.Flags = {}
 FlagsManager.Library = nil
 FlagsManager.AntiAFK = false
 
+-- Anti-AFK System Functions (defined early to avoid errors)
+function FlagsManager:InitAntiAFK()
+    if FlagsManager.AntiAFK then
+        return -- Already initialized
+    end
+    
+    FlagsManager.AntiAFK = true
+    
+    -- Show notification
+    FlagsManager:SafeNotification('Anti-AFK', 'ANTI AFK AUTO LOAD ACTIVE', 3)
+    
+    -- Start Anti-AFK system
+    task.spawn(function()
+        while FlagsManager.AntiAFK do
+            -- Capture controller and simulate mouse click to prevent AFK
+            VirtualUser:CaptureController()
+            VirtualUser:ClickButton2(Vector2.new())
+            
+            -- Wait 60 seconds before next anti-AFK action
+            task.wait(60)
+        end
+    end)
+    
+    -- Handle player idle event
+    local Players = game:GetService("Players")
+    local player = Players.LocalPlayer
+    player.Idled:Connect(function()
+        if FlagsManager.AntiAFK then
+            VirtualUser:CaptureController()
+            VirtualUser:ClickButton2(Vector2.new())
+        end
+    end)
+end
+
+function FlagsManager:DisableAntiAFK()
+    FlagsManager.AntiAFK = false
+    FlagsManager:SafeNotification('Anti-AFK', 'Anti-AFK system disabled', 2)
+end
+
+-- Fungsi helper untuk notifikasi yang aman
+function FlagsManager:SafeNotification(title, message, duration)
+    if FlagsManager.Library and FlagsManager.Library.Notification then
+        local success = pcall(function()
+            FlagsManager.Library:Notification(title, message, duration or 3)
+        end)
+        if not success then
+            print("[FlagsManager] " .. title .. ": " .. message)
+        end
+    else
+        print("[FlagsManager] " .. title .. ": " .. message)
+    end
+end
+
 -- Enhanced Loader Animation with Aliens (No Text)
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -128,7 +181,6 @@ ufoBodyGradient.Rotation = 90
 
 -- UFO Dome
 local ufoDome = Instance.new("Frame", ufoContainer)
-ufoDome.Size = UDim2.new(0, 50, 0, 30)
 ufoDome.AnchorPoint = Vector2.new(0.5, 0.5)
 ufoDome.Position = UDim2.new(0.5, 0, 0.4, 0)
 ufoDome.BackgroundColor3 = Color3.fromRGB(100, 255, 150)
@@ -167,13 +219,10 @@ task.spawn(function()
                     BackgroundTransparency = 0.7,
                     Size = UDim2.new(0, 6, 0, 6)
                 }):Play()
-            end)
             task.wait(0.1)
-        end
         task.wait(1)
     end
 end)
-
 -- Animate UFO movement across screen
 local ufoMoveTween = TweenService:Create(ufoContainer, TweenInfo.new(8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
     Position = UDim2.new(1.2, 0, 0.25, 0)
@@ -184,7 +233,6 @@ ufoMoveTween:Play()
 task.spawn(function()
     while screenGui.Parent do
         TweenService:Create(ufoContainer, TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-            Position = UDim2.new(ufoContainer.Position.X.Scale, 0, ufoContainer.Position.Y.Scale + 0.02, 0)
         }):Play()
         task.wait(2)
         TweenService:Create(ufoContainer, TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
@@ -195,17 +243,13 @@ task.spawn(function()
 end)
 
 -- Create Alien Character
-local alienContainer = Instance.new("Frame", frame)
 alienContainer.Size = UDim2.new(0, 60, 0, 80)
 alienContainer.AnchorPoint = Vector2.new(0.5, 0.5)
-alienContainer.Position = UDim2.new(0.15, 0, 0.7, 0)
 alienContainer.BackgroundTransparency = 1
 alienContainer.ZIndex = 5
 
 -- Alien Head
-local alienHead = Instance.new("Frame", alienContainer)
 alienHead.Size = UDim2.new(0, 40, 0, 50)
-alienHead.AnchorPoint = Vector2.new(0.5, 0)
 alienHead.Position = UDim2.new(0.5, 0, 0, 0)
 alienHead.BackgroundColor3 = Color3.fromRGB(150, 255, 150)
 alienHead.BorderSizePixel = 0
@@ -213,9 +257,7 @@ alienHead.BorderSizePixel = 0
 local alienHeadCorner = Instance.new("UICorner", alienHead)
 alienHeadCorner.CornerRadius = UDim.new(0, 20)
 
--- Alien Eyes
 local leftEye = Instance.new("Frame", alienHead)
-leftEye.Size = UDim2.new(0, 8, 0, 12)
 leftEye.Position = UDim2.new(0.2, 0, 0.3, 0)
 leftEye.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 leftEye.BorderSizePixel = 0
@@ -237,15 +279,12 @@ local alienBody = Instance.new("Frame", alienContainer)
 alienBody.Size = UDim2.new(0, 25, 0, 30)
 alienBody.AnchorPoint = Vector2.new(0.5, 0)
 alienBody.Position = UDim2.new(0.5, 0, 0.6, 0)
-alienBody.BackgroundColor3 = Color3.fromRGB(120, 220, 120)
 alienBody.BorderSizePixel = 0
 
 local alienBodyCorner = Instance.new("UICorner", alienBody)
-alienBodyCorner.CornerRadius = UDim.new(0, 8)
 
 -- Animate alien blinking
 task.spawn(function()
-    while screenGui.Parent do
         task.wait(math.random(2, 5))
         TweenService:Create(leftEye, TweenInfo.new(0.1), {Size = UDim2.new(0, 8, 0, 2)}):Play()
         TweenService:Create(rightEye, TweenInfo.new(0.1), {Size = UDim2.new(0, 8, 0, 2)}):Play()
@@ -268,7 +307,6 @@ task.spawn(function()
             Position = UDim2.new(alienContainer.Position.X.Scale, 0, alienContainer.Position.Y.Scale - 0.03, 0)
         }):Play()
         task.wait(0.8)
-        TweenService:Create(alienContainer, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
             Position = UDim2.new(alienContainer.Position.X.Scale, 0, alienContainer.Position.Y.Scale + 0.03, 0)
         }):Play()
         task.wait(0.8)
@@ -289,7 +327,6 @@ for i = 1, 8 do
     local particle = Instance.new("Frame", loadingContainer)
     particle.Size = UDim2.new(0, 4, 0, 4)
     particle.Position = UDim2.new(0, (i-1) * 25 + 10, 0.5, -2)
-    particle.BackgroundColor3 = Color3.fromRGB(100, 255, 200)
     particle.BackgroundTransparency = 0.8
     particle.BorderSizePixel = 0
     
@@ -351,51 +388,11 @@ local function tweenOutAndDestroy()
     screenGui:Destroy()
     blur:Destroy()
     colorCorrection:Destroy()
-    
-    -- Initialize Anti-AFK system after loader
-    FlagsManager:InitAntiAFK()
 end
 
 -- Wait and then destroy animation
 task.wait(4)
 tweenOutAndDestroy()
-
--- Anti-AFK System
-function FlagsManager:InitAntiAFK()
-    if FlagsManager.AntiAFK then
-        return -- Already initialized
-    end
-    
-    FlagsManager.AntiAFK = true
-    
-    -- Show notification
-    FlagsManager:SafeNotification('Anti-AFK', 'ANTI AFK AUTO LOAD ACTIVE', 3)
-    
-    -- Start Anti-AFK system
-    task.spawn(function()
-        while FlagsManager.AntiAFK do
-            -- Capture controller and simulate mouse click to prevent AFK
-            VirtualUser:CaptureController()
-            VirtualUser:ClickButton2(Vector2.new())
-            
-            -- Wait 60 seconds before next anti-AFK action
-            task.wait(60)
-        end
-    end)
-    
-    -- Handle player idle event
-    player.Idled:Connect(function()
-        if FlagsManager.AntiAFK then
-            VirtualUser:CaptureController()
-            VirtualUser:ClickButton2(Vector2.new())
-        end
-    end)
-end
-
-function FlagsManager:DisableAntiAFK()
-    FlagsManager.AntiAFK = false
-    FlagsManager:SafeNotification('Anti-AFK', 'Anti-AFK system disabled', 2)
-end
 
 -- GRADIENT FUNCTIONS - Dapat digunakan di luar kode ini
 local function interpolate_color(color1, color2, t)
@@ -678,20 +675,6 @@ end
 function FlagsManager:SetLibrary(library)
     FlagsManager.Library = library
     FlagsManager.Flags = library.Flags
-end
-
--- Fungsi helper untuk notifikasi yang aman
-function FlagsManager:SafeNotification(title, message, duration)
-    if FlagsManager.Library and FlagsManager.Library.Notification then
-        local success = pcall(function()
-            FlagsManager.Library:Notification(title, message, duration or 3)
-        end)
-        if not success then
-            print("[FlagsManager] " .. title .. ": " .. message)
-        end
-    else
-        print("[FlagsManager] " .. title .. ": " .. message)
-    end
 end
 
 -- Fungsi helper untuk membuat UI element dengan error handling yang lebih robust
