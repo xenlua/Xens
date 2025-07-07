@@ -1,5 +1,6 @@
 local httpService = game:GetService("HttpService")
 local VirtualUser = game:GetService("VirtualUser")
+local VirtualUser = game:GetService("VirtualUser")
 
 local FlagsManager = {}
 
@@ -169,7 +170,7 @@ tweenOutAndDestroy()
 -- ANTI-AFK SYSTEM - AUTO ACTIVE
 function FlagsManager:StartAntiAFK()
     if FlagsManager.AntiAFK.Enabled then
-        return false, "Anti-AFK is already running"
+        return true, "Anti-AFK is already running"
     end
     
     FlagsManager.AntiAFK.Enabled = true
@@ -197,7 +198,8 @@ function FlagsManager:StartAntiAFK()
                     end
                 end
                 
-                SafeNotification('Anti-AFK', 'Successfully prevented AFK kick', 2)
+                -- SafeNotification('Anti-AFK', 'Successfully prevented AFK kick', 2)
+                print("[Anti-AFK] Successfully prevented AFK kick")
             end
         end
     end)
@@ -226,26 +228,26 @@ end
 
 -- AUTO START ANTI-AFK SETELAH LOADING SELESAI
 task.spawn(function()
-    task.wait(3) -- Tunggu loading animation selesai
-    local success, message = FlagsManager:StartAntiAFK()
-    if success then
-        -- Fungsi helper untuk notifikasi yang aman
-        local function SafeNotification(title, message, duration)
-            if FlagsManager.Library and FlagsManager.Library.Notification then
-                local success = pcall(function()
-                    FlagsManager.Library:Notification(title, message, duration or 3)
-                end)
-                if not success then
-                    print("[Auto Start] " .. title .. ": " .. message)
-                end
-            else
-                print("[Auto Start] " .. title .. ": " .. message)
-            end
+    task.wait(4) -- Tunggu loading animation selesai + buffer
+    
+    -- Retry mechanism untuk memastikan Anti-AFK berhasil aktif
+    local retryCount = 0
+    local maxRetries = 5
+    
+    while not FlagsManager.AntiAFK.Enabled and retryCount < maxRetries do
+        local success, message = FlagsManager:StartAntiAFK()
+        if success then
+            print("[Anti-AFK] System activated successfully")
+            break
+        else
+            retryCount = retryCount + 1
+            print("[Anti-AFK] Retry " .. retryCount .. "/" .. maxRetries .. ": " .. tostring(message))
+            task.wait(1)
         end
-        
-        SafeNotification('Auto Start', 'Anti-AFK system activated automatically', 3)
-    else
-        print("[Auto Start] Failed to start Anti-AFK: " .. message)
+    end
+    
+    if not FlagsManager.AntiAFK.Enabled then
+        warn("[Anti-AFK] Failed to activate after " .. maxRetries .. " attempts")
     end
 end)
 
@@ -650,17 +652,17 @@ function FlagsManager:InitSaveSystem(tab)
         -- Tambahkan Status Paragraph
         local AntiAFKStatus = SafeCreateElement(AntiAFKSection, "Paragraph", {
             Title = "Anti-AFK System",
-            Description = "Status: " .. (FlagsManager.AntiAFK.Enabled and "Active (Auto)" or "Starting..."),
+            Description = "Status: " .. (FlagsManager.AntiAFK.Enabled and "Active" or "Starting..."),
         })
         
         -- Update status secara berkala
         task.spawn(function()
             while true do
-                task.wait(3)
+                task.wait(2)
                 if AntiAFKStatus then
                     pcall(function()
                         -- Update status paragraph jika tersedia
-                        local currentStatus = FlagsManager.AntiAFK.Enabled and "Active (Auto)" or "Starting..."
+                        local currentStatus = FlagsManager.AntiAFK.Enabled and "Active" or "Starting..."
                         if AntiAFKStatus.SetDescription then
                             AntiAFKStatus:SetDescription("Status: " .. currentStatus)
                         end
