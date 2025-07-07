@@ -9,7 +9,7 @@ FlagsManager.Flags = {}
 FlagsManager.Library = nil
 FlagsManager.AntiAFK = false
 
--- Enhanced Avantrix Loader Animation with Aliens
+-- Enhanced Loader Animation with Aliens (No Text)
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local Lighting = game:GetService("Lighting")
@@ -324,24 +324,8 @@ task.spawn(function()
     end
 end)
 
--- Enhanced Avantrix text with holographic effect
-local word = "Avantrix"
-local letters = {}
-
+-- Function to clean up and destroy animation
 local function tweenOutAndDestroy()
-    -- Fade out letters with advanced stagger
-    for i, label in ipairs(letters) do
-        task.spawn(function()
-            TweenService:Create(label, TweenInfo.new(0.6, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
-                TextTransparency = 1,
-                TextSize = 20,
-                Position = UDim2.new(0.5, (i - (#word / 2 + 0.5)) * 65, 0.5, -50),
-                Rotation = math.random(-30, 30)
-            }):Play()
-        end)
-        task.wait(0.1)
-    end
-    
     -- Fade out all elements
     for _, particle in ipairs(particles) do
         TweenService:Create(particle, TweenInfo.new(0.8), {BackgroundTransparency = 1}):Play()
@@ -372,81 +356,7 @@ local function tweenOutAndDestroy()
     FlagsManager:InitAntiAFK()
 end
 
--- Create holographic letters with advanced effects
-for i = 1, #word do
-    local char = word:sub(i, i)
-
-    local label = Instance.new("TextLabel")
-    label.Text = char
-    label.Font = Enum.Font.GothamBlack
-    label.TextColor3 = Color3.new(1, 1, 1)
-    label.TextStrokeTransparency = 0.3
-    label.TextStrokeColor3 = Color3.fromRGB(0, 255, 255)
-    label.TextTransparency = 1
-    label.TextScaled = false
-    label.TextSize = 15
-    label.Size = UDim2.new(0, 70, 0, 70)
-    label.AnchorPoint = Vector2.new(0.5, 0.5)
-    label.Position = UDim2.new(0.5, (i - (#word / 2 + 0.5)) * 75, 0.5, 30)
-    label.BackgroundTransparency = 1
-    label.Parent = frame
-    label.ZIndex = 6
-
-    -- Holographic gradient effect
-    local gradient = Instance.new("UIGradient")
-    gradient.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 255, 255)),
-        ColorSequenceKeypoint.new(0.3, Color3.fromRGB(100, 200, 255)),
-        ColorSequenceKeypoint.new(0.7, Color3.fromRGB(255, 100, 255)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 255, 100))
-    })
-    gradient.Rotation = 45
-    gradient.Parent = label
-
-    -- Animate gradient rotation
-    task.spawn(function()
-        while label.Parent do
-            TweenService:Create(gradient, TweenInfo.new(3, Enum.EasingStyle.Linear), {Rotation = gradient.Rotation + 360}):Play()
-            task.wait(3)
-        end
-    end)
-
-    -- Advanced entrance animation with multiple effects
-    local tweenIn = TweenService:Create(label, TweenInfo.new(0.8, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-        TextTransparency = 0,
-        TextSize = 85,
-        Position = UDim2.new(0.5, (i - (#word / 2 + 0.5)) * 75, 0.5, 0)
-    })
-    tweenIn:Play()
-
-    -- Add glitch effect
-    tweenIn.Completed:Connect(function()
-        task.spawn(function()
-            while label.Parent do
-                -- Random glitch effect
-                if math.random() < 0.1 then
-                    local originalPos = label.Position
-                    TweenService:Create(label, TweenInfo.new(0.05), {
-                        Position = UDim2.new(originalPos.X.Scale + math.random(-5, 5)/1000, 0, originalPos.Y.Scale + math.random(-5, 5)/1000, 0)
-                    }):Play()
-                    task.wait(0.05)
-                    TweenService:Create(label, TweenInfo.new(0.05), {Position = originalPos}):Play()
-                end
-                task.wait(0.1)
-            end
-        end)
-        
-        -- Floating animation
-        local floatTween = TweenService:Create(label, TweenInfo.new(3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
-            Position = UDim2.new(0.5, (i - (#word / 2 + 0.5)) * 75, 0.5, math.random(-8, 8))
-        })
-        floatTween:Play()
-    end)
-
-    table.insert(letters, label)
-    task.wait(0.25)
-end
-
+-- Wait and then destroy animation
 task.wait(4)
 tweenOutAndDestroy()
 
