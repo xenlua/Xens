@@ -1,5 +1,4 @@
 local httpService = game:GetService("HttpService")
-local VirtualUser = game:GetService("VirtualUser")
 
 local FlagsManager = {}
 
@@ -7,82 +6,17 @@ FlagsManager.Folder = "Avantrix"
 FlagsManager.Ignore = {}
 FlagsManager.Flags = {}
 FlagsManager.Library = nil
-FlagsManager.AntiAFK = false
 
--- Anti-AFK System Functions (defined early to avoid errors)
-function FlagsManager:InitAntiAFK()
-    if FlagsManager.AntiAFK then
-        return -- Already initialized
-    end
-    
-    FlagsManager.AntiAFK = true
-    
-    -- Show notification
-    FlagsManager:SafeNotification('Anti-AFK', 'ANTI AFK AUTO LOAD ACTIVE', 3)
-    
-    -- Start Anti-AFK system
-    task.spawn(function()
-        while FlagsManager.AntiAFK do
-            -- Capture controller and simulate mouse click to prevent AFK
-            VirtualUser:CaptureController()
-            VirtualUser:ClickButton2(Vector2.new())
-            
-            -- Wait 60 seconds before next anti-AFK action
-            task.wait(60)
-        end
-    end)
-    
-    -- Handle player idle event
-    local Players = game:GetService("Players")
-    local player = Players.LocalPlayer
-    player.Idled:Connect(function()
-        if FlagsManager.AntiAFK then
-            VirtualUser:CaptureController()
-            VirtualUser:ClickButton2(Vector2.new())
-        end
-    end)
-end
-
-function FlagsManager:DisableAntiAFK()
-    FlagsManager.AntiAFK = false
-    FlagsManager:SafeNotification('Anti-AFK', 'Anti-AFK system disabled', 2)
-end
-
--- Fungsi helper untuk notifikasi yang aman
-function FlagsManager:SafeNotification(title, message, duration)
-    if FlagsManager.Library and FlagsManager.Library.Notification then
-        local success = pcall(function()
-            FlagsManager.Library:Notification(title, message, duration or 3)
-        end)
-        if not success then
-            print("[FlagsManager] " .. title .. ": " .. message)
-        end
-    else
-        print("[FlagsManager] " .. title .. ": " .. message)
-    end
-end
-
--- Enhanced Loader Animation with Aliens (No Text)
+-- Simple Enhanced Avantrix Loader Animation
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local Lighting = game:GetService("Lighting")
-local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
 
--- Enhanced blur effect with color correction
+-- Enhanced blur effect
 local blur = Instance.new("BlurEffect", Lighting)
 blur.Size = 0
-local colorCorrection = Instance.new("ColorCorrectionEffect", Lighting)
-colorCorrection.Brightness = 0
-colorCorrection.Contrast = 0
-colorCorrection.Saturation = 0
-
-TweenService:Create(blur, TweenInfo.new(0.8, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = 35}):Play()
-TweenService:Create(colorCorrection, TweenInfo.new(0.8, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-    Brightness = -0.2,
-    Contrast = 0.3,
-    Saturation = -0.5
-}):Play()
+TweenService:Create(blur, TweenInfo.new(0.6, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = 28}):Play()
 
 local screenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
 screenGui.Name = "AvantrixLoader"
@@ -93,305 +27,138 @@ local frame = Instance.new("Frame", screenGui)
 frame.Size = UDim2.new(1, 0, 1, 0)
 frame.BackgroundTransparency = 1
 
--- Animated space background with stars
+-- Enhanced background with subtle gradient
 local bg = Instance.new("Frame", frame)
 bg.Size = UDim2.new(1, 0, 1, 0)
-bg.BackgroundColor3 = Color3.fromRGB(5, 8, 20)
+bg.BackgroundColor3 = Color3.fromRGB(8, 12, 25)
 bg.BackgroundTransparency = 1
 bg.ZIndex = 0
 
--- Multiple gradient layers for depth
+-- Subtle gradient background
 local bgGradient = Instance.new("UIGradient", bg)
 bgGradient.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(15, 25, 50)),
-    ColorSequenceKeypoint.new(0.3, Color3.fromRGB(8, 15, 35)),
-    ColorSequenceKeypoint.new(0.7, Color3.fromRGB(5, 8, 20)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 30, 60))
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(12, 18, 35)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(8, 12, 25)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(15, 22, 40))
 })
-bgGradient.Rotation = 45
+bgGradient.Rotation = 135
 
-TweenService:Create(bg, TweenInfo.new(0.8, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundTransparency = 0}):Play()
+TweenService:Create(bg, TweenInfo.new(0.6, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundTransparency = 0.2}):Play()
 
--- Animated rotating gradient
-task.spawn(function()
-    while screenGui.Parent do
-        TweenService:Create(bgGradient, TweenInfo.new(8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Rotation = bgGradient.Rotation + 360}):Play()
-        task.wait(8)
-    end
-end)
-
--- Create animated stars
-local starsContainer = Instance.new("Frame", frame)
-starsContainer.Size = UDim2.new(1, 0, 1, 0)
-starsContainer.BackgroundTransparency = 1
-starsContainer.ZIndex = 1
-
-local stars = {}
-for i = 1, 50 do
-    local star = Instance.new("Frame", starsContainer)
-    star.Size = UDim2.new(0, math.random(1, 3), 0, math.random(1, 3))
-    star.Position = UDim2.new(math.random(), 0, math.random(), 0)
-    star.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    star.BackgroundTransparency = math.random(30, 80) / 100
-    star.BorderSizePixel = 0
-    
-    local corner = Instance.new("UICorner", star)
-    corner.CornerRadius = UDim.new(1, 0)
-    
-    table.insert(stars, star)
-    
-    -- Animate star twinkling
-    task.spawn(function()
-        while screenGui.Parent do
-            local twinkle = TweenService:Create(star, TweenInfo.new(math.random(1, 3), Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-                BackgroundTransparency = math.random(10, 90) / 100
-            })
-            twinkle:Play()
-            task.wait(math.random(1, 4))
-        end
-    end)
-end
-
--- Create UFO/Alien spaceship
-local ufoContainer = Instance.new("Frame", frame)
-ufoContainer.Size = UDim2.new(0, 120, 0, 60)
-ufoContainer.AnchorPoint = Vector2.new(0.5, 0.5)
-ufoContainer.Position = UDim2.new(-0.2, 0, 0.3, 0)
-ufoContainer.BackgroundTransparency = 1
-ufoContainer.ZIndex = 4
-
--- UFO Body
-local ufoBody = Instance.new("Frame", ufoContainer)
-ufoBody.Size = UDim2.new(0, 80, 0, 25)
-ufoBody.AnchorPoint = Vector2.new(0.5, 0.5)
-ufoBody.Position = UDim2.new(0.5, 0, 0.6, 0)
-ufoBody.BackgroundColor3 = Color3.fromRGB(150, 200, 255)
-ufoBody.BorderSizePixel = 0
-
-local ufoBodyCorner = Instance.new("UICorner", ufoBody)
-ufoBodyCorner.CornerRadius = UDim.new(0, 15)
-
-local ufoBodyGradient = Instance.new("UIGradient", ufoBody)
-ufoBodyGradient.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(200, 230, 255)),
-    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(120, 180, 255)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(80, 140, 220))
-})
-ufoBodyGradient.Rotation = 90
-
--- UFO Dome
-local ufoDome = Instance.new("Frame", ufoContainer)
-ufoDome.AnchorPoint = Vector2.new(0.5, 0.5)
-ufoDome.Position = UDim2.new(0.5, 0, 0.4, 0)
-ufoDome.BackgroundColor3 = Color3.fromRGB(100, 255, 150)
-ufoDome.BackgroundTransparency = 0.3
-ufoDome.BorderSizePixel = 0
-
-local ufoDomeCorner = Instance.new("UICorner", ufoDome)
-ufoDomeCorner.CornerRadius = UDim.new(1, 0)
-
--- UFO Lights
-local lights = {}
-for i = 1, 5 do
-    local light = Instance.new("Frame", ufoContainer)
-    light.Size = UDim2.new(0, 6, 0, 6)
-    light.Position = UDim2.new(0.2 + (i-1) * 0.15, 0, 0.75, 0)
-    light.BackgroundColor3 = Color3.fromRGB(255, 255, 100)
-    light.BorderSizePixel = 0
-    
-    local lightCorner = Instance.new("UICorner", light)
-    lightCorner.CornerRadius = UDim.new(1, 0)
-    
-    table.insert(lights, light)
-end
-
--- Animate UFO lights
-task.spawn(function()
-    while screenGui.Parent do
-        for i, light in ipairs(lights) do
-            task.spawn(function()
-                TweenService:Create(light, TweenInfo.new(0.3, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
-                    BackgroundTransparency = 0,
-                    Size = UDim2.new(0, 10, 0, 10)
-                }):Play()
-                task.wait(0.3)
-                TweenService:Create(light, TweenInfo.new(0.3, Enum.EasingStyle.Sine, Enum.EasingDirection.In), {
-                    BackgroundTransparency = 0.7,
-                    Size = UDim2.new(0, 6, 0, 6)
-                }):Play()
-            task.wait(0.1)
-        task.wait(1)
-    end
-end)
--- Animate UFO movement across screen
-local ufoMoveTween = TweenService:Create(ufoContainer, TweenInfo.new(8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-    Position = UDim2.new(1.2, 0, 0.25, 0)
-})
-ufoMoveTween:Play()
-
--- Add floating animation to UFO
-task.spawn(function()
-    while screenGui.Parent do
-        TweenService:Create(ufoContainer, TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-        }):Play()
-        task.wait(2)
-        TweenService:Create(ufoContainer, TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-            Position = UDim2.new(ufoContainer.Position.X.Scale, 0, ufoContainer.Position.Y.Scale - 0.02, 0)
-        }):Play()
-        task.wait(2)
-    end
-end)
-
--- Create Alien Character
-alienContainer.Size = UDim2.new(0, 60, 0, 80)
-alienContainer.AnchorPoint = Vector2.new(0.5, 0.5)
-alienContainer.BackgroundTransparency = 1
-alienContainer.ZIndex = 5
-
--- Alien Head
-alienHead.Size = UDim2.new(0, 40, 0, 50)
-alienHead.Position = UDim2.new(0.5, 0, 0, 0)
-alienHead.BackgroundColor3 = Color3.fromRGB(150, 255, 150)
-alienHead.BorderSizePixel = 0
-
-local alienHeadCorner = Instance.new("UICorner", alienHead)
-alienHeadCorner.CornerRadius = UDim.new(0, 20)
-
-local leftEye = Instance.new("Frame", alienHead)
-leftEye.Position = UDim2.new(0.2, 0, 0.3, 0)
-leftEye.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-leftEye.BorderSizePixel = 0
-
-local leftEyeCorner = Instance.new("UICorner", leftEye)
-leftEyeCorner.CornerRadius = UDim.new(1, 0)
-
-local rightEye = Instance.new("Frame", alienHead)
-rightEye.Size = UDim2.new(0, 8, 0, 12)
-rightEye.Position = UDim2.new(0.7, 0, 0.3, 0)
-rightEye.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-rightEye.BorderSizePixel = 0
-
-local rightEyeCorner = Instance.new("UICorner", rightEye)
-rightEyeCorner.CornerRadius = UDim.new(1, 0)
-
--- Alien Body
-local alienBody = Instance.new("Frame", alienContainer)
-alienBody.Size = UDim2.new(0, 25, 0, 30)
-alienBody.AnchorPoint = Vector2.new(0.5, 0)
-alienBody.Position = UDim2.new(0.5, 0, 0.6, 0)
-alienBody.BorderSizePixel = 0
-
-local alienBodyCorner = Instance.new("UICorner", alienBody)
-
--- Animate alien blinking
-task.spawn(function()
-        task.wait(math.random(2, 5))
-        TweenService:Create(leftEye, TweenInfo.new(0.1), {Size = UDim2.new(0, 8, 0, 2)}):Play()
-        TweenService:Create(rightEye, TweenInfo.new(0.1), {Size = UDim2.new(0, 8, 0, 2)}):Play()
-        task.wait(0.1)
-        TweenService:Create(leftEye, TweenInfo.new(0.1), {Size = UDim2.new(0, 8, 0, 12)}):Play()
-        TweenService:Create(rightEye, TweenInfo.new(0.1), {Size = UDim2.new(0, 8, 0, 12)}):Play()
-    end
-end)
-
--- Animate alien movement
-local alienMoveTween = TweenService:Create(alienContainer, TweenInfo.new(10, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-    Position = UDim2.new(0.85, 0, 0.65, 0)
-})
-alienMoveTween:Play()
-
--- Add bouncing animation to alien
-task.spawn(function()
-    while screenGui.Parent do
-        TweenService:Create(alienContainer, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-            Position = UDim2.new(alienContainer.Position.X.Scale, 0, alienContainer.Position.Y.Scale - 0.03, 0)
-        }):Play()
-        task.wait(0.8)
-            Position = UDim2.new(alienContainer.Position.X.Scale, 0, alienContainer.Position.Y.Scale + 0.03, 0)
-        }):Play()
-        task.wait(0.8)
-    end
-end)
-
--- Enhanced loading animation with particles
+-- Simple loading dots animation
 local loadingContainer = Instance.new("Frame", frame)
-loadingContainer.Size = UDim2.new(0, 200, 0, 40)
+loadingContainer.Size = UDim2.new(0, 100, 0, 20)
 loadingContainer.AnchorPoint = Vector2.new(0.5, 0.5)
-loadingContainer.Position = UDim2.new(0.5, 0, 0.8, 0)
+loadingContainer.Position = UDim2.new(0.5, 0, 0.75, 0)
 loadingContainer.BackgroundTransparency = 1
 loadingContainer.ZIndex = 3
 
--- Create energy particles
-local particles = {}
-for i = 1, 8 do
-    local particle = Instance.new("Frame", loadingContainer)
-    particle.Size = UDim2.new(0, 4, 0, 4)
-    particle.Position = UDim2.new(0, (i-1) * 25 + 10, 0.5, -2)
-    particle.BackgroundTransparency = 0.8
-    particle.BorderSizePixel = 0
+-- Create 3 loading dots
+local dots = {}
+for i = 1, 3 do
+    local dot = Instance.new("Frame", loadingContainer)
+    dot.Size = UDim2.new(0, 8, 0, 8)
+    dot.Position = UDim2.new(0, (i-1) * 25 + 20, 0.5, -4)
+    dot.BackgroundColor3 = Color3.fromRGB(100, 170, 255)
+    dot.BackgroundTransparency = 0.7
     
-    local corner = Instance.new("UICorner", particle)
+    local corner = Instance.new("UICorner", dot)
     corner.CornerRadius = UDim.new(1, 0)
     
-    table.insert(particles, particle)
+    table.insert(dots, dot)
 end
 
--- Animate energy particles
+-- Animate loading dots
 task.spawn(function()
     while screenGui.Parent do
-        for i, particle in ipairs(particles) do
+        for i, dot in ipairs(dots) do
             task.spawn(function()
-                TweenService:Create(particle, TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
-                    BackgroundTransparency = 0.1,
-                    Size = UDim2.new(0, 8, 0, 8),
-                    Position = UDim2.new(0, (i-1) * 25 + 8, 0.5, -4),
-                    BackgroundColor3 = Color3.fromRGB(150, 255, 255)
-                }):Play()
-                task.wait(0.5)
-                TweenService:Create(particle, TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.In), {
-                    BackgroundTransparency = 0.8,
-                    Size = UDim2.new(0, 4, 0, 4),
-                    Position = UDim2.new(0, (i-1) * 25 + 10, 0.5, -2),
-                    BackgroundColor3 = Color3.fromRGB(100, 255, 200)
-                }):Play()
+                TweenService:Create(dot, TweenInfo.new(0.4, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), 
+                    {BackgroundTransparency = 0.2, Size = UDim2.new(0, 12, 0, 12), Position = UDim2.new(0, (i-1) * 25 + 18, 0.5, -6)}):Play()
+                task.wait(0.4)
+                TweenService:Create(dot, TweenInfo.new(0.4, Enum.EasingStyle.Sine, Enum.EasingDirection.In), 
+                    {BackgroundTransparency = 0.7, Size = UDim2.new(0, 8, 0, 8), Position = UDim2.new(0, (i-1) * 25 + 20, 0.5, -4)}):Play()
             end)
-            task.wait(0.15)
+            task.wait(0.2)
         end
-        task.wait(1)
+        task.wait(0.8)
     end
 end)
 
--- Function to clean up and destroy animation
+local word = "Avantrix"
+local letters = {}
+
 local function tweenOutAndDestroy()
-    -- Fade out all elements
-    for _, particle in ipairs(particles) do
-        TweenService:Create(particle, TweenInfo.new(0.8), {BackgroundTransparency = 1}):Play()
+    -- Fade out letters with stagger
+    for i, label in ipairs(letters) do
+        task.spawn(function()
+            TweenService:Create(label, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.In), 
+                {TextTransparency = 1, TextSize = 30, Position = UDim2.new(0.5, (i - (#word / 2 + 0.5)) * 65, 0.5, -20)}):Play()
+        end)
+        task.wait(0.08)
     end
     
-    TweenService:Create(ufoContainer, TweenInfo.new(0.8), {Position = UDim2.new(1.5, 0, 0.25, 0)}):Play()
-    TweenService:Create(alienContainer, TweenInfo.new(0.8), {Position = UDim2.new(1.2, 0, 0.65, 0)}):Play()
-    
-    -- Fade out background effects
-    TweenService:Create(bg, TweenInfo.new(1, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {BackgroundTransparency = 1}):Play()
-    TweenService:Create(blur, TweenInfo.new(1, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {Size = 0}):Play()
-    TweenService:Create(colorCorrection, TweenInfo.new(1, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
-        Brightness = 0,
-        Contrast = 0,
-        Saturation = 0
-    }):Play()
-    
-    for _, star in ipairs(stars) do
-        TweenService:Create(star, TweenInfo.new(1), {BackgroundTransparency = 1}):Play()
+    -- Fade out loading dots
+    for _, dot in ipairs(dots) do
+        TweenService:Create(dot, TweenInfo.new(0.5), {BackgroundTransparency = 1}):Play()
     end
     
-    task.wait(1.2)
+    -- Fade out background and blur
+    TweenService:Create(bg, TweenInfo.new(0.6, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {BackgroundTransparency = 1}):Play()
+    TweenService:Create(blur, TweenInfo.new(0.6, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {Size = 0}):Play()
+    
+    task.wait(0.8)
     screenGui:Destroy()
     blur:Destroy()
-    colorCorrection:Destroy()
 end
 
--- Wait and then destroy animation
-task.wait(4)
+-- Create letters with enhanced but simple animation
+for i = 1, #word do
+    local char = word:sub(i, i)
+
+    local label = Instance.new("TextLabel")
+    label.Text = char
+    label.Font = Enum.Font.GothamBlack
+    label.TextColor3 = Color3.new(1, 1, 1)
+    label.TextStrokeTransparency = 0.6
+    label.TextStrokeColor3 = Color3.fromRGB(40, 80, 140)
+    label.TextTransparency = 1
+    label.TextScaled = false
+    label.TextSize = 20
+    label.Size = UDim2.new(0, 60, 0, 60)
+    label.AnchorPoint = Vector2.new(0.5, 0.5)
+    label.Position = UDim2.new(0.5, (i - (#word / 2 + 0.5)) * 65, 0.5, 20)
+    label.BackgroundTransparency = 1
+    label.Parent = frame
+    label.ZIndex = 2
+
+    -- Enhanced gradient with more colors
+    local gradient = Instance.new("UIGradient")
+    gradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(120, 190, 255)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(80, 150, 255)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(50, 110, 200))
+    })
+    gradient.Rotation = 90
+    gradient.Parent = label
+
+    -- Smooth entrance animation with bounce
+    local tweenIn = TweenService:Create(label, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), 
+        {TextTransparency = 0, TextSize = 68, Position = UDim2.new(0.5, (i - (#word / 2 + 0.5)) * 65, 0.5, 0)})
+    tweenIn:Play()
+
+    -- Add subtle floating animation after entrance
+    tweenIn.Completed:Connect(function()
+        local floatTween = TweenService:Create(label, TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), 
+            {Position = UDim2.new(0.5, (i - (#word / 2 + 0.5)) * 65, 0.5, math.random(-3, 3))})
+        floatTween:Play()
+    end)
+
+    table.insert(letters, label)
+    task.wait(0.2)
+end
+
+task.wait(2.5)
 tweenOutAndDestroy()
 
 -- GRADIENT FUNCTIONS - Dapat digunakan di luar kode ini
@@ -677,6 +444,20 @@ function FlagsManager:SetLibrary(library)
     FlagsManager.Flags = library.Flags
 end
 
+-- Fungsi helper untuk notifikasi yang aman
+local function SafeNotification(title, message, duration)
+    if FlagsManager.Library and FlagsManager.Library.Notification then
+        local success = pcall(function()
+            FlagsManager.Library:Notification(title, message, duration or 3)
+        end)
+        if not success then
+            print("[FlagsManager] " .. title .. ": " .. message)
+        end
+    else
+        print("[FlagsManager] " .. title .. ": " .. message)
+    end
+end
+
 -- Fungsi helper untuk membuat UI element dengan error handling yang lebih robust
 local function SafeCreateElement(parent, elementType, config)
     if not parent then
@@ -698,8 +479,6 @@ local function SafeCreateElement(parent, elementType, config)
             return parent:AddButton(config)
         elseif elementType == "Paragraph" then
             return parent:AddParagraph(config)
-        elseif elementType == "Toggle" then
-            return parent:AddToggle(config.Flag or "TempToggle", config)
         else
             warn("SafeCreateElement: Unknown element type: " .. tostring(elementType))
             return nil
@@ -718,28 +497,28 @@ function FlagsManager:InitSaveSystem(tab)
     -- Validasi parameter utama dengan pengecekan yang lebih ketat
     if not tab then
         warn("FlagsManager:InitSaveSystem - tab parameter is required")
-        FlagsManager:SafeNotification('Error', 'Failed to initialize save system: tab parameter is nil', 5)
+        SafeNotification('Error', 'Failed to initialize save system: tab parameter is nil', 5)
         return false
     end
     
     -- Cek apakah tab memiliki method yang diperlukan
     if type(tab.AddSection) ~= "function" then
         warn("FlagsManager:InitSaveSystem - tab does not have AddSection method")
-        FlagsManager:SafeNotification('Error', 'Invalid tab object provided', 5)
+        SafeNotification('Error', 'Invalid tab object provided', 5)
         return false
     end
     
     -- Validasi Library
     if not FlagsManager.Library then
         warn("FlagsManager:InitSaveSystem - Library is not set. Call SetLibrary first.")
-        FlagsManager:SafeNotification('Error', 'Library not initialized. Call SetLibrary first.', 5)
+        SafeNotification('Error', 'Library not initialized. Call SetLibrary first.', 5)
         return false
     end
     
     -- Validasi Flags
     if not FlagsManager.Flags then
         warn("FlagsManager:InitSaveSystem - Flags is not set. Library may not be properly initialized.")
-        FlagsManager:SafeNotification('Error', 'Flags not initialized properly.', 5)
+        SafeNotification('Error', 'Flags not initialized properly.', 5)
         return false
     end
 
@@ -750,7 +529,7 @@ function FlagsManager:InitSaveSystem(tab)
     
     if not success then
         warn("FlagsManager:InitSaveSystem - Failed to build folder tree")
-        FlagsManager:SafeNotification('Error', 'Failed to create folder structure', 5)
+        SafeNotification('Error', 'Failed to create folder structure', 5)
         return false
     end
 
@@ -776,24 +555,9 @@ function FlagsManager:InitSaveSystem(tab)
     })
     
     if not ConfigSection then
-        FlagsManager:SafeNotification('Error', 'Failed to create Configuration section', 5)
+        SafeNotification('Error', 'Failed to create Configuration section', 5)
         return false
     end
-
-    -- Add Anti-AFK Toggle
-    local AntiAFKToggle = SafeCreateElement(ConfigSection, "Toggle", {
-        Flag = "AntiAFK",
-        Title = "Anti-AFK System",
-        Description = "Automatically prevent AFK detection",
-        Default = true,
-        Callback = function(value)
-            if value then
-                FlagsManager:InitAntiAFK()
-            else
-                FlagsManager:DisableAntiAFK()
-            end
-        end
-    })
 
     -- Tambahkan Textbox untuk nama config
     local ConfigNameTextbox = SafeCreateElement(ConfigSection, "Textbox", {
@@ -830,7 +594,7 @@ function FlagsManager:InitSaveSystem(tab)
     local SaveManagerGroupButton = SafeCreateElement(ConfigSection, "GroupButton")
     
     if not SaveManagerGroupButton then
-        FlagsManager:SafeNotification('Error', 'Failed to create button group', 5)
+        SafeNotification('Error', 'Failed to create button group', 5)
         return false
     end
 
@@ -843,7 +607,7 @@ function FlagsManager:InitSaveSystem(tab)
                 local name = SaveManager_ConfigName
 
                 if not name or name:gsub(" ", "") == "" then
-                    FlagsManager:SafeNotification('Error', 'Please enter a valid config name', 3)
+                    SafeNotification('Error', 'Please enter a valid config name', 3)
                     return
                 end
 
@@ -852,11 +616,11 @@ function FlagsManager:InitSaveSystem(tab)
                 end)
                 
                 if not success or not err then
-                    FlagsManager:SafeNotification('Error', 'Failed to create config: ' .. tostring(err), 3)
+                    SafeNotification('Error', 'Failed to create config: ' .. tostring(err), 3)
                     return
                 end
 
-                FlagsManager:SafeNotification('Success', string.format('Created config "%s"', name), 3)
+                SafeNotification('Success', string.format('Created config "%s"', name), 3)
 
                 -- Refresh dropdown list
                 pcall(function()
@@ -877,7 +641,7 @@ function FlagsManager:InitSaveSystem(tab)
                 end)
 
                 if not name or name == "" then
-                    FlagsManager:SafeNotification('Error', 'Please select a config to load', 3)
+                    SafeNotification('Error', 'Please select a config to load', 3)
                     return
                 end
 
@@ -886,11 +650,11 @@ function FlagsManager:InitSaveSystem(tab)
                 end)
                 
                 if not success or not err then
-                    FlagsManager:SafeNotification('Error', 'Failed to load config: ' .. tostring(err), 3)
+                    SafeNotification('Error', 'Failed to load config: ' .. tostring(err), 3)
                     return
                 end
 
-                FlagsManager:SafeNotification('Success', string.format('Loaded config "%s"', name), 3)
+                SafeNotification('Success', string.format('Loaded config "%s"', name), 3)
             end,
         },
         {
@@ -903,7 +667,7 @@ function FlagsManager:InitSaveSystem(tab)
                 end)
 
                 if not name or name == "" then
-                    FlagsManager:SafeNotification('Error', 'Please select a config to save', 3)
+                    SafeNotification('Error', 'Please select a config to save', 3)
                     return
                 end
 
@@ -912,11 +676,11 @@ function FlagsManager:InitSaveSystem(tab)
                 end)
                 
                 if not success or not err then
-                    FlagsManager:SafeNotification('Error', 'Failed to save config: ' .. tostring(err), 3)
+                    SafeNotification('Error', 'Failed to save config: ' .. tostring(err), 3)
                     return
                 end
 
-                FlagsManager:SafeNotification('Success', string.format('Saved config "%s"', name), 3)
+                SafeNotification('Success', string.format('Saved config "%s"', name), 3)
             end,
         },
         {
@@ -929,7 +693,7 @@ function FlagsManager:InitSaveSystem(tab)
                 end)
 
                 if not name or name == "" then
-                    FlagsManager:SafeNotification('Error', 'Please select a config to delete', 3)
+                    SafeNotification('Error', 'Please select a config to delete', 3)
                     return
                 end
 
@@ -938,11 +702,11 @@ function FlagsManager:InitSaveSystem(tab)
                 end)
                 
                 if not success or not err then
-                    FlagsManager:SafeNotification('Error', 'Failed to delete config: ' .. tostring(err), 3)
+                    SafeNotification('Error', 'Failed to delete config: ' .. tostring(err), 3)
                     return
                 end
 
-                FlagsManager:SafeNotification('Success', string.format('Deleted config "%s"', name), 3)
+                SafeNotification('Success', string.format('Deleted config "%s"', name), 3)
 
                 -- Refresh dropdown list setelah penghapusan
                 pcall(function()
@@ -963,7 +727,7 @@ function FlagsManager:InitSaveSystem(tab)
                         FlagsManager.Flags.SaveManager_ConfigurationList:Set("")
                     end
                 end)
-                FlagsManager:SafeNotification('Info', 'Configuration list refreshed', 2)
+                SafeNotification('Info', 'Configuration list refreshed', 2)
             end,
         },
         {
@@ -980,12 +744,12 @@ function FlagsManager:InitSaveSystem(tab)
                     pcall(function()
                         FlagsManager:SetAutoLoadConfig("")
                     end)
-                    FlagsManager:SafeNotification('Info', 'Auto load config cleared', 3)
+                    SafeNotification('Info', 'Auto load config cleared', 3)
                 else
                     pcall(function()
                         FlagsManager:SetAutoLoadConfig(name)
                     end)
-                    FlagsManager:SafeNotification('Success', string.format('Set auto load config to "%s"', name), 3)
+                    SafeNotification('Success', string.format('Set auto load config to "%s"', name), 3)
                 end
             end,
         }
@@ -1014,19 +778,14 @@ function FlagsManager:InitSaveSystem(tab)
             end)
             
             if success and err then
-                FlagsManager:SafeNotification('Success', string.format('Auto loaded config "%s"', SaveManager_AutoLoadConfig), 3)
+                SafeNotification('Success', string.format('Auto loaded config "%s"', SaveManager_AutoLoadConfig), 3)
             else
-                FlagsManager:SafeNotification('Warning', string.format('Failed to auto load config "%s": %s', SaveManager_AutoLoadConfig, tostring(err)), 3)
+                SafeNotification('Warning', string.format('Failed to auto load config "%s": %s', SaveManager_AutoLoadConfig, tostring(err)), 3)
             end
         end)
     end
 
-    -- Initialize Anti-AFK by default
-    if FlagsManager.Flags.AntiAFK and FlagsManager.Flags.AntiAFK.Value then
-        FlagsManager:InitAntiAFK()
-    end
-
-    FlagsManager:SafeNotification('Success', 'Save system initialized successfully', 2)
+    SafeNotification('Success', 'Save system initialized successfully', 2)
     return true
 end
 
