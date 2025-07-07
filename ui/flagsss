@@ -166,7 +166,7 @@ end
 task.wait(2.5)
 tweenOutAndDestroy()
 
--- ANTI-AFK SYSTEM
+-- ANTI-AFK SYSTEM - AUTO ACTIVE
 function FlagsManager:StartAntiAFK()
     if FlagsManager.AntiAFK.Enabled then
         return false, "Anti-AFK is already running"
@@ -223,6 +223,31 @@ end
 function FlagsManager:GetAntiAFKStatus()
     return FlagsManager.AntiAFK.Enabled
 end
+
+-- AUTO START ANTI-AFK SETELAH LOADING SELESAI
+task.spawn(function()
+    task.wait(3) -- Tunggu loading animation selesai
+    local success, message = FlagsManager:StartAntiAFK()
+    if success then
+        -- Fungsi helper untuk notifikasi yang aman
+        local function SafeNotification(title, message, duration)
+            if FlagsManager.Library and FlagsManager.Library.Notification then
+                local success = pcall(function()
+                    FlagsManager.Library:Notification(title, message, duration or 3)
+                end)
+                if not success then
+                    print("[Auto Start] " .. title .. ": " .. message)
+                end
+            else
+                print("[Auto Start] " .. title .. ": " .. message)
+            end
+        end
+        
+        SafeNotification('Auto Start', 'Anti-AFK system activated automatically', 3)
+    else
+        print("[Auto Start] Failed to start Anti-AFK: " .. message)
+    end
+end)
 
 -- GRADIENT FUNCTIONS - Dapat digunakan di luar kode ini
 local function interpolate_color(color1, color2, t)
@@ -289,7 +314,6 @@ FlagsManager.gradient = gradient
 FlagsManager.interpolate_color = interpolate_color
 FlagsManager.hex_to_rgb = hex_to_rgb
 
--- Tambahkan Toggle untuk Anti-AFK ke dalam parser
 FlagsManager.Parser = {
     Toggle = {
         Save = function(idx, object)
@@ -419,34 +443,8 @@ function FlagsManager:Load(name)
         end
     end
 
-    -- Load Anti-AFK status if saved
-    if decoded.antiAFK ~= nil then
-        if decoded.antiAFK and not FlagsManager.AntiAFK.Enabled then
-            task.spawn(function()
-                task.wait(1) -- Wait for config to load
-                local success, message = FlagsManager:StartAntiAFK()
-                if success then
-                    -- Fungsi helper untuk notifikasi yang aman
-                    local function SafeNotification(title, message, duration)
-                        if FlagsManager.Library and FlagsManager.Library.Notification then
-                            local success = pcall(function()
-                                FlagsManager.Library:Notification(title, message, duration or 3)
-                            end)
-                            if not success then
-                                print("[Auto Load] " .. title .. ": " .. message)
-                            end
-                        else
-                            print("[Auto Load] " .. title .. ": " .. message)
-                        end
-                    end
-                    
-                    SafeNotification('Auto Load', 'Anti-AFK enabled from config', 3)
-                end
-            end)
-        elseif not decoded.antiAFK and FlagsManager.AntiAFK.Enabled then
-            FlagsManager:StopAntiAFK()
-        end
-    end
+    -- Load Anti-AFK status if saved (tapi karena auto active, ini tidak diperlukan)
+    -- Anti-AFK akan selalu aktif otomatis
 
     return true
 end
@@ -573,8 +571,6 @@ local function SafeCreateElement(parent, elementType, config)
             return parent:AddButton(config)
         elseif elementType == "Paragraph" then
             return parent:AddParagraph(config)
-        elseif elementType == "Toggle" then
-            return parent:AddToggle(config.Flag or "TempToggle", config)
         else
             warn("SafeCreateElement: Unknown element type: " .. tostring(elementType))
             return nil
@@ -642,58 +638,29 @@ function FlagsManager:InitSaveSystem(tab)
         SaveManager_AutoLoadConfig = ""
     end
 
-    -- Buat Anti-AFK Section
+    -- Buat Anti-AFK Status Section (hanya menampilkan status, tidak ada toggle)
     local AntiAFKSection = SafeCreateElement(tab, "Section", {
-        Title = gradient("Anti-AFK System"), 
-        Description = "Prevent getting kicked for being idle", 
+        Title = gradient("Anti-AFK Status"), 
+        Description = "Anti-AFK system is automatically active", 
         Default = false, 
         Locked = false
     })
     
     if AntiAFKSection then
-        -- Tambahkan Toggle untuk Anti-AFK
-        local AntiAFKToggle = SafeCreateElement(AntiAFKSection, "Toggle", {
-            Flag = "AntiAFK_Toggle",
-            Title = "Enable Anti-AFK",
-            Description = "Automatically prevent AFK kicks",
-            Default = false,
-            Callback = function(value)
-                if value then
-                    local success, message = FlagsManager:StartAntiAFK()
-                    if success then
-                        SafeNotification('Success', 'Anti-AFK enabled', 3)
-                    else
-                        SafeNotification('Error', 'Failed to enable Anti-AFK: ' .. message, 3)
-                        -- Reset toggle jika gagal
-                        if FlagsManager.Flags["AntiAFK_Toggle"] then
-                            FlagsManager.Flags["AntiAFK_Toggle"]:Set(false)
-                        end
-                    end
-                else
-                    local success, message = FlagsManager:StopAntiAFK()
-                    if success then
-                        SafeNotification('Info', 'Anti-AFK disabled', 3)
-                    else
-                        SafeNotification('Error', 'Failed to disable Anti-AFK: ' .. message, 3)
-                    end
-                end
-            end
-        })
-        
         -- Tambahkan Status Paragraph
         local AntiAFKStatus = SafeCreateElement(AntiAFKSection, "Paragraph", {
-            Title = "Anti-AFK Status",
-            Description = "Status: " .. (FlagsManager.AntiAFK.Enabled and "Enabled" or "Disabled"),
+            Title = "Anti-AFK System",
+            Description = "Status: " .. (FlagsManager.AntiAFK.Enabled and "Active (Auto)" or "Starting..."),
         })
         
         -- Update status secara berkala
         task.spawn(function()
             while true do
-                task.wait(5)
+                task.wait(3)
                 if AntiAFKStatus then
                     pcall(function()
                         -- Update status paragraph jika tersedia
-                        local currentStatus = FlagsManager.AntiAFK.Enabled and "Enabled" or "Disabled"
+                        local currentStatus = FlagsManager.AntiAFK.Enabled and "Active (Auto)" or "Starting..."
                         if AntiAFKStatus.SetDescription then
                             AntiAFKStatus:SetDescription("Status: " .. currentStatus)
                         end
@@ -945,18 +912,5 @@ function FlagsManager:InitSaveSystem(tab)
     SafeNotification('Success', 'Save system initialized successfully', 2)
     return true
 end
-
--- Auto start Anti-AFK saat script dimuat (opsional)
-task.spawn(function()
-    task.wait(5) -- Tunggu semuanya load
-    if getgenv and getgenv().AutoStartAntiAFK then
-        local success, message = FlagsManager:StartAntiAFK()
-        if success then
-            print("[Anti-AFK] Auto-started successfully")
-        else
-            warn("[Anti-AFK] Failed to auto-start: " .. message)
-        end
-    end
-end)
 
 return FlagsManager
