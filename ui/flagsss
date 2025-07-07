@@ -62,7 +62,7 @@ function FlagsManager:SafeNotification(title, message, duration)
     end
 end
 
--- Enhanced Loader Animation with Aliens (No Text)
+-- Enhanced UFO Loader Animation
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local Lighting = game:GetService("Lighting")
@@ -93,266 +93,165 @@ local frame = Instance.new("Frame", screenGui)
 frame.Size = UDim2.new(1, 0, 1, 0)
 frame.BackgroundTransparency = 1
 
--- Animated space background with stars
-local bg = Instance.new("Frame", frame)
-bg.Size = UDim2.new(1, 0, 1, 0)
-bg.BackgroundColor3 = Color3.fromRGB(5, 8, 20)
-bg.BackgroundTransparency = 1
-bg.ZIndex = 0
+-- Create main container for centered content
+local mainContainer = Instance.new("Frame", frame)
+mainContainer.Size = UDim2.new(0, 600, 0, 400)
+mainContainer.AnchorPoint = Vector2.new(0.5, 0.5)
+mainContainer.Position = UDim2.new(0.5, 0, 0.5, 0)
+mainContainer.BackgroundTransparency = 1
+mainContainer.ZIndex = 2
 
--- Multiple gradient layers for depth
-local bgGradient = Instance.new("UIGradient", bg)
-bgGradient.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(15, 25, 50)),
-    ColorSequenceKeypoint.new(0.3, Color3.fromRGB(8, 15, 35)),
-    ColorSequenceKeypoint.new(0.7, Color3.fromRGB(5, 8, 20)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 30, 60))
-})
-bgGradient.Rotation = 45
-
-TweenService:Create(bg, TweenInfo.new(0.8, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundTransparency = 0}):Play()
-
--- Animated rotating gradient
-task.spawn(function()
-    while screenGui.Parent do
-        TweenService:Create(bgGradient, TweenInfo.new(8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Rotation = bgGradient.Rotation + 360}):Play()
-        task.wait(8)
-    end
-end)
-
--- Create animated stars
-local starsContainer = Instance.new("Frame", frame)
-starsContainer.Size = UDim2.new(1, 0, 1, 0)
-starsContainer.BackgroundTransparency = 1
-starsContainer.ZIndex = 1
-
-local stars = {}
-for i = 1, 50 do
-    local star = Instance.new("Frame", starsContainer)
-    star.Size = UDim2.new(0, math.random(1, 3), 0, math.random(1, 3))
-    star.Position = UDim2.new(math.random(), 0, math.random(), 0)
-    star.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    star.BackgroundTransparency = math.random(30, 80) / 100
-    star.BorderSizePixel = 0
-    
-    local corner = Instance.new("UICorner", star)
-    corner.CornerRadius = UDim.new(1, 0)
-    
-    table.insert(stars, star)
-    
-    -- Animate star twinkling
-    task.spawn(function()
-        while screenGui.Parent do
-            local twinkle = TweenService:Create(star, TweenInfo.new(math.random(1, 3), Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-                BackgroundTransparency = math.random(10, 90) / 100
-            })
-            twinkle:Play()
-            task.wait(math.random(1, 4))
-        end
-    end)
-end
-
--- Create UFO/Alien spaceship
-local ufoContainer = Instance.new("Frame", frame)
-ufoContainer.Size = UDim2.new(0, 120, 0, 60)
+-- Create UFO similar to the image
+local ufoContainer = Instance.new("Frame", mainContainer)
+ufoContainer.Size = UDim2.new(0, 200, 0, 120)
 ufoContainer.AnchorPoint = Vector2.new(0.5, 0.5)
-ufoContainer.Position = UDim2.new(-0.2, 0, 0.3, 0)
+ufoContainer.Position = UDim2.new(0.5, 0, 0.3, 0)
 ufoContainer.BackgroundTransparency = 1
 ufoContainer.ZIndex = 4
 
--- UFO Body
-local ufoBody = Instance.new("Frame", ufoContainer)
-ufoBody.Size = UDim2.new(0, 80, 0, 25)
-ufoBody.AnchorPoint = Vector2.new(0.5, 0.5)
-ufoBody.Position = UDim2.new(0.5, 0, 0.6, 0)
-ufoBody.BackgroundColor3 = Color3.fromRGB(150, 200, 255)
-ufoBody.BorderSizePixel = 0
-
-local ufoBodyCorner = Instance.new("UICorner", ufoBody)
-ufoBodyCorner.CornerRadius = UDim.new(0, 15)
-
-local ufoBodyGradient = Instance.new("UIGradient", ufoBody)
-ufoBodyGradient.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(200, 230, 255)),
-    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(120, 180, 255)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(80, 140, 220))
-})
-ufoBodyGradient.Rotation = 90
-
--- UFO Dome
+-- UFO Dome (top part)
 local ufoDome = Instance.new("Frame", ufoContainer)
-ufoDome.AnchorPoint = Vector2.new(0.5, 0.5)
-ufoDome.Position = UDim2.new(0.5, 0, 0.4, 0)
-ufoDome.BackgroundColor3 = Color3.fromRGB(100, 255, 150)
-ufoDome.BackgroundTransparency = 0.3
+ufoDome.Size = UDim2.new(0, 80, 0, 40)
+ufoDome.AnchorPoint = Vector2.new(0.5, 1)
+ufoDome.Position = UDim2.new(0.5, 0, 0.6, 0)
+ufoDome.BackgroundColor3 = Color3.fromRGB(200, 220, 240)
 ufoDome.BorderSizePixel = 0
 
 local ufoDomeCorner = Instance.new("UICorner", ufoDome)
-ufoDomeCorner.CornerRadius = UDim.new(1, 0)
+ufoDomeCorner.CornerRadius = UDim.new(0.5, 0)
 
--- UFO Lights
+local ufoDomeGradient = Instance.new("UIGradient", ufoDome)
+ufoDomeGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(220, 240, 255)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(180, 200, 220))
+})
+ufoDomeGradient.Rotation = 90
+
+-- UFO Body (main part - pink/red like in image)
+local ufoBody = Instance.new("Frame", ufoContainer)
+ufoBody.Size = UDim2.new(0, 160, 0, 50)
+ufoBody.AnchorPoint = Vector2.new(0.5, 0.5)
+ufoBody.Position = UDim2.new(0.5, 0, 0.6, 0)
+ufoBody.BackgroundColor3 = Color3.fromRGB(220, 80, 120)
+ufoBody.BorderSizePixel = 0
+
+local ufoBodyCorner = Instance.new("UICorner", ufoBody)
+ufoBodyCorner.CornerRadius = UDim.new(0.5, 0)
+
+local ufoBodyGradient = Instance.new("UIGradient", ufoBody)
+ufoBodyGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(240, 100, 140)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(220, 80, 120)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(180, 60, 100))
+})
+ufoBodyGradient.Rotation = 90
+
+-- UFO Lights (yellow circles like in image)
 local lights = {}
-for i = 1, 5 do
-    local light = Instance.new("Frame", ufoContainer)
-    light.Size = UDim2.new(0, 6, 0, 6)
-    light.Position = UDim2.new(0.2 + (i-1) * 0.15, 0, 0.75, 0)
-    light.BackgroundColor3 = Color3.fromRGB(255, 255, 100)
+for i = 1, 6 do
+    local light = Instance.new("Frame", ufoBody)
+    light.Size = UDim2.new(0, 12, 0, 12)
+    light.Position = UDim2.new(0.15 + (i-1) * 0.14, -6, 0.5, -6)
+    light.BackgroundColor3 = Color3.fromRGB(255, 220, 80)
     light.BorderSizePixel = 0
     
     local lightCorner = Instance.new("UICorner", light)
     lightCorner.CornerRadius = UDim.new(1, 0)
     
-    table.insert(lights, light)
+    -- Add glow effect
+    local lightGlow = Instance.new("Frame", light)
+    lightGlow.Size = UDim2.new(1.5, 0, 1.5, 0)
+    lightGlow.AnchorPoint = Vector2.new(0.5, 0.5)
+    lightGlow.Position = UDim2.new(0.5, 0, 0.5, 0)
+    lightGlow.BackgroundColor3 = Color3.fromRGB(255, 255, 150)
+    lightGlow.BackgroundTransparency = 0.7
+    lightGlow.BorderSizePixel = 0
+    lightGlow.ZIndex = -1
+    
+    local glowCorner = Instance.new("UICorner", lightGlow)
+    glowCorner.CornerRadius = UDim.new(1, 0)
+    
+    table.insert(lights, {light = light, glow = lightGlow})
 end
+
+-- Tractor Beam
+local tractorBeam = Instance.new("Frame", ufoContainer)
+tractorBeam.Size = UDim2.new(0, 60, 0, 150)
+tractorBeam.AnchorPoint = Vector2.new(0.5, 0)
+tractorBeam.Position = UDim2.new(0.5, 0, 0.85, 0)
+tractorBeam.BackgroundColor3 = Color3.fromRGB(200, 255, 200)
+tractorBeam.BackgroundTransparency = 0.7
+tractorBeam.BorderSizePixel = 0
+tractorBeam.ZIndex = 1
+
+-- Make tractor beam wider at bottom
+local beamGradient = Instance.new("UIGradient", tractorBeam)
+beamGradient.Transparency = NumberSequence.new({
+    NumberSequenceKeypoint.new(0, 0.3),
+    NumberSequenceKeypoint.new(1, 0.8)
+})
+beamGradient.Rotation = 90
+
+-- Create "Avantrix" text in tractor beam
+local avantrixText = Instance.new("TextLabel", tractorBeam)
+avantrixText.Size = UDim2.new(1, 0, 0.4, 0)
+avantrixText.AnchorPoint = Vector2.new(0.5, 0.5)
+avantrixText.Position = UDim2.new(0.5, 0, 0.7, 0)
+avantrixText.BackgroundTransparency = 1
+avantrixText.Text = "Avantrix"
+avantrixText.Font = Enum.Font.GothamBold
+avantrixText.TextSize = 24
+avantrixText.TextColor3 = Color3.fromRGB(255, 255, 255)
+avantrixText.TextStrokeTransparency = 0.5
+avantrixText.TextStrokeColor3 = Color3.fromRGB(100, 255, 100)
+avantrixText.TextTransparency = 1
+avantrixText.ZIndex = 5
+
+-- Animate UFO entrance
+local ufoEntranceTween = TweenService:Create(ufoContainer, TweenInfo.new(1.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+    Position = UDim2.new(0.5, 0, 0.3, 0)
+})
+
+-- Start with UFO off-screen
+ufoContainer.Position = UDim2.new(0.5, 0, -0.3, 0)
+ufoEntranceTween:Play()
+
+-- Animate UFO floating
+task.spawn(function()
+    task.wait(1.5) -- Wait for entrance animation
+    while screenGui.Parent do
+        TweenService:Create(ufoContainer, TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+            Position = UDim2.new(0.5, 0, 0.28, 0)
+        }):Play()
+        task.wait(2)
+        TweenService:Create(ufoContainer, TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+            Position = UDim2.new(0.5, 0, 0.32, 0)
+        }):Play()
+        task.wait(2)
+    end
+end)
 
 -- Animate UFO lights
 task.spawn(function()
     while screenGui.Parent do
-        for i, light in ipairs(lights) do
+        for i, lightData in ipairs(lights) do
             task.spawn(function()
-                TweenService:Create(light, TweenInfo.new(0.3, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
+                TweenService:Create(lightData.light, TweenInfo.new(0.3, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
                     BackgroundTransparency = 0,
-                    Size = UDim2.new(0, 10, 0, 10)
+                    Size = UDim2.new(0, 16, 0, 16)
+                }):Play()
+                TweenService:Create(lightData.glow, TweenInfo.new(0.3, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
+                    BackgroundTransparency = 0.4,
+                    Size = UDim2.new(2, 0, 2, 0)
                 }):Play()
                 task.wait(0.3)
-                TweenService:Create(light, TweenInfo.new(0.3, Enum.EasingStyle.Sine, Enum.EasingDirection.In), {
+                TweenService:Create(lightData.light, TweenInfo.new(0.3, Enum.EasingStyle.Sine, Enum.EasingDirection.In), {
+                    BackgroundTransparency = 0.3,
+                    Size = UDim2.new(0, 12, 0, 12)
+                }):Play()
+                TweenService:Create(lightData.glow, TweenInfo.new(0.3, Enum.EasingStyle.Sine, Enum.EasingDirection.In), {
                     BackgroundTransparency = 0.7,
-                    Size = UDim2.new(0, 6, 0, 6)
-                }):Play()
-            task.wait(0.1)
-        task.wait(1)
-    end
-end)
--- Animate UFO movement across screen
-local ufoMoveTween = TweenService:Create(ufoContainer, TweenInfo.new(8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-    Position = UDim2.new(1.2, 0, 0.25, 0)
-})
-ufoMoveTween:Play()
-
--- Add floating animation to UFO
-task.spawn(function()
-    while screenGui.Parent do
-        TweenService:Create(ufoContainer, TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-        }):Play()
-        task.wait(2)
-        TweenService:Create(ufoContainer, TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-            Position = UDim2.new(ufoContainer.Position.X.Scale, 0, ufoContainer.Position.Y.Scale - 0.02, 0)
-        }):Play()
-        task.wait(2)
-    end
-end)
-
--- Create Alien Character
-alienContainer.Size = UDim2.new(0, 60, 0, 80)
-alienContainer.AnchorPoint = Vector2.new(0.5, 0.5)
-alienContainer.BackgroundTransparency = 1
-alienContainer.ZIndex = 5
-
--- Alien Head
-alienHead.Size = UDim2.new(0, 40, 0, 50)
-alienHead.Position = UDim2.new(0.5, 0, 0, 0)
-alienHead.BackgroundColor3 = Color3.fromRGB(150, 255, 150)
-alienHead.BorderSizePixel = 0
-
-local alienHeadCorner = Instance.new("UICorner", alienHead)
-alienHeadCorner.CornerRadius = UDim.new(0, 20)
-
-local leftEye = Instance.new("Frame", alienHead)
-leftEye.Position = UDim2.new(0.2, 0, 0.3, 0)
-leftEye.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-leftEye.BorderSizePixel = 0
-
-local leftEyeCorner = Instance.new("UICorner", leftEye)
-leftEyeCorner.CornerRadius = UDim.new(1, 0)
-
-local rightEye = Instance.new("Frame", alienHead)
-rightEye.Size = UDim2.new(0, 8, 0, 12)
-rightEye.Position = UDim2.new(0.7, 0, 0.3, 0)
-rightEye.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-rightEye.BorderSizePixel = 0
-
-local rightEyeCorner = Instance.new("UICorner", rightEye)
-rightEyeCorner.CornerRadius = UDim.new(1, 0)
-
--- Alien Body
-local alienBody = Instance.new("Frame", alienContainer)
-alienBody.Size = UDim2.new(0, 25, 0, 30)
-alienBody.AnchorPoint = Vector2.new(0.5, 0)
-alienBody.Position = UDim2.new(0.5, 0, 0.6, 0)
-alienBody.BorderSizePixel = 0
-
-local alienBodyCorner = Instance.new("UICorner", alienBody)
-
--- Animate alien blinking
-task.spawn(function()
-        task.wait(math.random(2, 5))
-        TweenService:Create(leftEye, TweenInfo.new(0.1), {Size = UDim2.new(0, 8, 0, 2)}):Play()
-        TweenService:Create(rightEye, TweenInfo.new(0.1), {Size = UDim2.new(0, 8, 0, 2)}):Play()
-        task.wait(0.1)
-        TweenService:Create(leftEye, TweenInfo.new(0.1), {Size = UDim2.new(0, 8, 0, 12)}):Play()
-        TweenService:Create(rightEye, TweenInfo.new(0.1), {Size = UDim2.new(0, 8, 0, 12)}):Play()
-    end
-end)
-
--- Animate alien movement
-local alienMoveTween = TweenService:Create(alienContainer, TweenInfo.new(10, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-    Position = UDim2.new(0.85, 0, 0.65, 0)
-})
-alienMoveTween:Play()
-
--- Add bouncing animation to alien
-task.spawn(function()
-    while screenGui.Parent do
-        TweenService:Create(alienContainer, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-            Position = UDim2.new(alienContainer.Position.X.Scale, 0, alienContainer.Position.Y.Scale - 0.03, 0)
-        }):Play()
-        task.wait(0.8)
-            Position = UDim2.new(alienContainer.Position.X.Scale, 0, alienContainer.Position.Y.Scale + 0.03, 0)
-        }):Play()
-        task.wait(0.8)
-    end
-end)
-
--- Enhanced loading animation with particles
-local loadingContainer = Instance.new("Frame", frame)
-loadingContainer.Size = UDim2.new(0, 200, 0, 40)
-loadingContainer.AnchorPoint = Vector2.new(0.5, 0.5)
-loadingContainer.Position = UDim2.new(0.5, 0, 0.8, 0)
-loadingContainer.BackgroundTransparency = 1
-loadingContainer.ZIndex = 3
-
--- Create energy particles
-local particles = {}
-for i = 1, 8 do
-    local particle = Instance.new("Frame", loadingContainer)
-    particle.Size = UDim2.new(0, 4, 0, 4)
-    particle.Position = UDim2.new(0, (i-1) * 25 + 10, 0.5, -2)
-    particle.BackgroundTransparency = 0.8
-    particle.BorderSizePixel = 0
-    
-    local corner = Instance.new("UICorner", particle)
-    corner.CornerRadius = UDim.new(1, 0)
-    
-    table.insert(particles, particle)
-end
-
--- Animate energy particles
-task.spawn(function()
-    while screenGui.Parent do
-        for i, particle in ipairs(particles) do
-            task.spawn(function()
-                TweenService:Create(particle, TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
-                    BackgroundTransparency = 0.1,
-                    Size = UDim2.new(0, 8, 0, 8),
-                    Position = UDim2.new(0, (i-1) * 25 + 8, 0.5, -4),
-                    BackgroundColor3 = Color3.fromRGB(150, 255, 255)
-                }):Play()
-                task.wait(0.5)
-                TweenService:Create(particle, TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.In), {
-                    BackgroundTransparency = 0.8,
-                    Size = UDim2.new(0, 4, 0, 4),
-                    Position = UDim2.new(0, (i-1) * 25 + 10, 0.5, -2),
-                    BackgroundColor3 = Color3.fromRGB(100, 255, 200)
+                    Size = UDim2.new(1.5, 0, 1.5, 0)
                 }):Play()
             end)
             task.wait(0.15)
@@ -361,37 +260,78 @@ task.spawn(function()
     end
 end)
 
+-- Animate tractor beam
+task.spawn(function()
+    task.wait(2) -- Wait for UFO to settle
+    
+    -- Beam appears
+    TweenService:Create(tractorBeam, TweenInfo.new(1, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
+        BackgroundTransparency = 0.3,
+        Size = UDim2.new(0, 100, 0, 150)
+        Position = UDim2.new(0.5, 0, 0.85, 0)
+    }):Play()
+    
+    -- Text appears in beam
+    task.wait(0.5)
+    TweenService:Create(avantrixText, TweenInfo.new(1, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        TextTransparency = 0,
+        TextSize = 28
+    }):Play()
+    
+    -- Beam pulsing effect
+    while screenGui.Parent do
+        TweenService:Create(tractorBeam, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+            BackgroundTransparency = 0.2
+        }):Play()
+        TweenService:Create(avantrixText, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+            TextStrokeTransparency = 0.2
+        }):Play()
+        task.wait(1.5)
+        TweenService:Create(tractorBeam, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+            BackgroundTransparency = 0.5
+        }):Play()
+        TweenService:Create(avantrixText, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+            TextStrokeTransparency = 0.7
+        }):Play()
+        task.wait(1.5)
+    end
+end)
+
 -- Function to clean up and destroy animation
 local function tweenOutAndDestroy()
-    -- Fade out all elements
-    for _, particle in ipairs(particles) do
-        TweenService:Create(particle, TweenInfo.new(0.8), {BackgroundTransparency = 1}):Play()
-    end
+    -- Fade out text first
+    TweenService:Create(avantrixText, TweenInfo.new(0.8, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+        TextTransparency = 1,
+        TextSize = 20
+    }):Play()
     
-    TweenService:Create(ufoContainer, TweenInfo.new(0.8), {Position = UDim2.new(1.5, 0, 0.25, 0)}):Play()
-    TweenService:Create(alienContainer, TweenInfo.new(0.8), {Position = UDim2.new(1.2, 0, 0.65, 0)}):Play()
+    -- Fade out tractor beam
+    TweenService:Create(tractorBeam, TweenInfo.new(1, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+        BackgroundTransparency = 1,
+        Size = UDim2.new(0, 20, 0, 50)
+    }):Play()
+    
+    -- UFO flies away
+    TweenService:Create(ufoContainer, TweenInfo.new(1.5, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+        Position = UDim2.new(0.5, 0, -0.5, 0)
+    }):Play()
     
     -- Fade out background effects
-    TweenService:Create(bg, TweenInfo.new(1, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {BackgroundTransparency = 1}):Play()
-    TweenService:Create(blur, TweenInfo.new(1, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {Size = 0}):Play()
-    TweenService:Create(colorCorrection, TweenInfo.new(1, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+    TweenService:Create(blur, TweenInfo.new(1.5, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {Size = 0}):Play()
+    TweenService:Create(colorCorrection, TweenInfo.new(1.5, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
         Brightness = 0,
         Contrast = 0,
         Saturation = 0
     }):Play()
     
-    for _, star in ipairs(stars) do
-        TweenService:Create(star, TweenInfo.new(1), {BackgroundTransparency = 1}):Play()
-    end
-    
-    task.wait(1.2)
+    task.wait(2)
     screenGui:Destroy()
     blur:Destroy()
     colorCorrection:Destroy()
 end
 
 -- Wait and then destroy animation
-task.wait(4)
+task.wait(6)
 tweenOutAndDestroy()
 
 -- GRADIENT FUNCTIONS - Dapat digunakan di luar kode ini
