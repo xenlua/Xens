@@ -1,6 +1,5 @@
 local httpService = game:GetService("HttpService")
 local VirtualUser = game:GetService("VirtualUser")
-local VirtualUser = game:GetService("VirtualUser")
 
 local FlagsManager = {}
 
@@ -198,8 +197,6 @@ function FlagsManager:StartAntiAFK()
                     end
                 end
                 
-                -- SafeNotification('Anti-AFK', 'Successfully prevented AFK kick', 2)
-                print("[Anti-AFK] Successfully prevented AFK kick")
             end
         end
     end)
@@ -237,17 +234,11 @@ task.spawn(function()
     while not FlagsManager.AntiAFK.Enabled and retryCount < maxRetries do
         local success, message = FlagsManager:StartAntiAFK()
         if success then
-            print("[Anti-AFK] System activated successfully")
             break
         else
             retryCount = retryCount + 1
-            print("[Anti-AFK] Retry " .. retryCount .. "/" .. maxRetries .. ": " .. tostring(message))
             task.wait(1)
         end
-    end
-    
-    if not FlagsManager.AntiAFK.Enabled then
-        warn("[Anti-AFK] Failed to activate after " .. maxRetries .. " attempts")
     end
 end)
 
@@ -544,11 +535,6 @@ local function SafeNotification(title, message, duration)
         local success = pcall(function()
             FlagsManager.Library:Notification(title, message, duration or 3)
         end)
-        if not success then
-            print("[FlagsManager] " .. title .. ": " .. message)
-        end
-    else
-        print("[FlagsManager] " .. title .. ": " .. message)
     end
 end
 
@@ -663,8 +649,8 @@ function FlagsManager:InitSaveSystem(tab)
                     pcall(function()
                         -- Update status paragraph jika tersedia
                         local currentStatus = FlagsManager.AntiAFK.Enabled and "Active" or "Starting..."
-                        if AntiAFKStatus.SetDescription then
-                            AntiAFKStatus:SetDescription("Status: " .. currentStatus)
+                        if AntiAFKStatus.SetDesc then
+                            AntiAFKStatus:SetDesc("Status: " .. currentStatus)
                         end
                     end)
                 end
@@ -869,11 +855,19 @@ function FlagsManager:InitSaveSystem(tab)
                     -- Clear auto load
                     pcall(function()
                         FlagsManager:SetAutoLoadConfig("")
+                        -- Update paragraph description
+                        if AutoLoadParagraph and AutoLoadParagraph.SetDesc then
+                            AutoLoadParagraph:SetDesc("Current Auto Load: None")
+                        end
                     end)
                     SafeNotification('Info', 'Auto load config cleared', 3)
                 else
                     pcall(function()
                         FlagsManager:SetAutoLoadConfig(name)
+                        -- Update paragraph description
+                        if AutoLoadParagraph and AutoLoadParagraph.SetDesc then
+                            AutoLoadParagraph:SetDesc("Current Auto Load: " .. name)
+                        end
                     end)
                     SafeNotification('Success', string.format('Set auto load config to "%s"', name), 3)
                 end
@@ -889,8 +883,11 @@ function FlagsManager:InitSaveSystem(tab)
         end
     end
 
+    -- Variabel untuk menyimpan referensi AutoLoadParagraph
+    local AutoLoadParagraph = nil
+    
     -- Tambahkan informasi Auto Load Config
-    local AutoLoadParagraph = SafeCreateElement(ConfigSection, "Paragraph", {
+    AutoLoadParagraph = SafeCreateElement(ConfigSection, "Paragraph", {
         Title = "Auto Load Config",
         Description = "Current Auto Load: " .. (SaveManager_AutoLoadConfig ~= "" and SaveManager_AutoLoadConfig or "None"),
     })
