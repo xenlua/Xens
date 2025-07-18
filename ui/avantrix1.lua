@@ -1404,7 +1404,7 @@ function TabModule:New(Title, Parent)
 	local SearchBox = Create("TextBox", {
 		Size = UDim2.new(1, -8, 0, 32),
 		Position = UDim2.new(0, 4, 0, 2),
-		PlaceholderText = "🔍Search...",
+		PlaceholderText = "Search elements...",
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Text = "",
 		Font = Enum.Font.Gotham,
@@ -1461,27 +1461,40 @@ function TabModule:New(Title, Parent)
 
 	-- Function to filter elements based on search text
 	local function searchInElement(element, searchText)
-		local title = element:FindFirstChild("Title", true)
-		local desc = element:FindFirstChild("Description", true)
-
-		if title then
-			debugLog("Checking title:", title.Text)
-			local cleanTitle = title.Text:gsub("^%s+", "")
-			if string.find(string.lower(cleanTitle), searchText) then
-				debugLog("Found match in title")
-				return true
-			end
+		-- If search is empty, show all elements
+		if searchText == "" then
+			return true
 		end
-
-		if desc then
-			debugLog("Checking description:", desc.Text)
-			if string.find(string.lower(desc.Text), searchText) then
-				debugLog("Found match in description")
-				return true
+		
+		-- Function to recursively search through all TextLabels and TextButtons
+		local function searchInChildren(parent)
+			for _, child in ipairs(parent:GetChildren()) do
+				if child:IsA("TextLabel") or child:IsA("TextButton") then
+					local text = child.Text or ""
+					-- Clean the text by removing leading spaces and special characters
+					local cleanText = text:gsub("^%s+", ""):gsub("^[^%w]*", "")
+					if string.find(string.lower(cleanText), searchText) then
+						debugLog("Found match in:", cleanText)
+						return true
+					end
+				elseif child:IsA("TextBox") then
+					local text = child.Text or ""
+					local placeholder = child.PlaceholderText or ""
+					if string.find(string.lower(text), searchText) or string.find(string.lower(placeholder), searchText) then
+						debugLog("Found match in textbox:", text)
+						return true
+					end
+				end
+				
+				-- Recursively search in children
+				if searchInChildren(child) then
+					return true
+				end
 			end
+			return false
 		end
-
-		return false
+		
+		return searchInChildren(element)
 	end
 
 	local function updateSearch()
@@ -1493,36 +1506,51 @@ function TabModule:New(Title, Parent)
 			return
 		end
 
+		local hasVisibleElements = false
+
 		-- Loop through all children in the container
 		for _, child in ipairs(Tab.Container:GetChildren()) do
-			if child.Name == "Section" then
+			if child:IsA("Frame") and child.Name == "Section" then
 				-- Handle section elements
 				local sectionContainer = child:FindFirstChild("SectionContainer")
 				if sectionContainer then
-					local visible = false
+					local sectionHasVisibleElements = false
 					debugLog("Checking section:", child.Name)
 
 					-- Search through elements in section
 					for _, element in ipairs(sectionContainer:GetChildren()) do
-						if element.Name == "Element" then
+						if element:IsA("Frame") or element:IsA("TextButton") then
 							local elementVisible = searchInElement(element, searchText)
-							element.Visible = elementVisible or searchText == ""
+							element.Visible = elementVisible
 							if elementVisible then
-								visible = true
+								sectionHasVisibleElements = true
+								hasVisibleElements = true
 							end
+							debugLog("Element visibility:", element.Name, elementVisible)
 						end
 					end
 
 					-- Show section if any elements match or search is empty
-					child.Visible = visible or searchText == ""
+					child.Visible = sectionHasVisibleElements or searchText == ""
+					if child.Visible and searchText == "" then
+						hasVisibleElements = true
+					end
 					debugLog("Section visibility:", child.Visible)
 				end
-			elseif child.Name == "Element" then
+			elseif child:IsA("Frame") or child:IsA("TextButton") then
 				-- Handle standalone elements
 				local elementVisible = searchInElement(child, searchText)
-				child.Visible = elementVisible or searchText == ""
+				child.Visible = elementVisible
+				if elementVisible then
+					hasVisibleElements = true
+				end
 				debugLog("Standalone element visibility:", child.Visible)
 			end
+		end
+		
+		-- Show a "No results found" message if no elements are visible and search is not empty
+		if not hasVisibleElements and searchText ~= "" then
+			debugLog("No search results found")
 		end
 	end
 
