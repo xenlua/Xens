@@ -4778,8 +4778,10 @@ local function LoadScript(scriptRef)
     end
     
     local Closure = ScriptClosures[scriptRef]
+    
+    -- Add safety check for closure
     if not Closure then
-        error("No closure found for script: " .. scriptRef.Name)
+        error("No closure found for script: " .. tostring(scriptRef), 2)
     end
     
     local Success, Result = pcall(Closure)
@@ -4889,7 +4891,8 @@ local function CreateRefFromObject(object, parent)
 end
 
 -- Create root and object tree
-local RootRef = CreateRef("Folder", "Enhanced_Library_Root")
+local RootRef = CreateRef("Folder", "Root", nil)
+
 for _, object in pairs(ObjectTree) do
     CreateRefFromObject(object, RootRef)
 end
@@ -4904,8 +4907,8 @@ end
 
 -- Load and return the main module
 local MainModule = RootRef:FindFirstChild("MainModule")
-if MainModule then
+if MainModule and ScriptClosures[MainModule] then
     return LoadScript(MainModule)
 else
-    error("Main module not found")
+    error("Main module not found or has no closure", 0)
 end
