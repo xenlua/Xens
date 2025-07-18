@@ -77,6 +77,7 @@ local Library = {
 	ToggleBind = nil,
 	Version = "2.0.0", -- Added version tracking
 	Author = "Xenon Team", -- Added author info
+	IsDestroyed = false, -- Add destroyed flag to prevent errors
 }
 
 -- ===== GUI CREATION =====
@@ -104,11 +105,15 @@ function Library:AddTheme(themeName, themeProps)
 end
 
 function Library:IsRunning()
-	return GUI.Parent == gethui()
+	-- Fixed: Check if destroyed first, then check if GUI exists and has proper parent
+	return not self.IsDestroyed and GUI and GUI.Parent and GUI.Parent == gethui()
 end
 
 -- Enhanced cleanup system with proper error handling
 function Library:Destroy()
+	-- Set destroyed flag first to prevent IsRunning from causing errors
+	self.IsDestroyed = true
+	
 	pcall(function()
 		if GUI then
 			GUI:Destroy()
@@ -133,6 +138,9 @@ end
 
 -- Force destroy method for complete cleanup
 function Library:ForceDestroy()
+	-- Set destroyed flag first to prevent IsRunning from causing errors
+	self.IsDestroyed = true
+	
 	pcall(function()
 		if GUI then
 			GUI:Destroy()
@@ -156,12 +164,26 @@ function Library:ForceDestroy()
 	end)
 end
 
--- Background cleanup task
+-- Enhanced background cleanup task with proper error handling
 task.spawn(function()
-	while Library:IsRunning() do
+	while true do
+		-- Check if library is destroyed first
+		if Library.IsDestroyed then
+			break
+		end
+		
+		-- Then check if it's running
+		local success, isRunning = pcall(function()
+			return Library:IsRunning()
+		end)
+		
+		if not success or not isRunning then
+			Library:Destroy()
+			break
+		end
+		
 		task.wait(1) -- Check every second instead of every frame
 	end
-	Library:Destroy()
 end)
 
 -- ===== ELEMENTS SYSTEM =====
@@ -435,7 +457,27 @@ function Library:Load(cfgs)
 	-- Button event connections with enhanced destroy
 	AddConnection(minimizebtn.MouseButton1Click, ToggleVisibility)
 	AddConnection(closebtn.MouseButton1Click, function()
-		Library:ForceDestroy() -- Use enhanced destroy method
+		-- Show confirmation dialog before closing
+		Library:Dialog({
+			Title = "Confirm Close",
+			Content = "Are you sure you want to close this window?",
+			Buttons = {
+				{
+					Title = "Cancel",
+					Variant = "Ghost",
+					Callback = function()
+						-- Dialog will close automatically, no action needed
+					end
+				},
+				{
+					Title = "Close",
+					Variant = "Destructive", -- This will make it red
+					Callback = function()
+						Library:ForceDestroy() -- Use enhanced destroy method
+					end
+				}
+			}
+		})
 	end)
 
 	-- ===== TAB FRAME (SIDEBAR) =====
@@ -1806,6 +1848,21 @@ local ButtonStyles = {
 		},
 		FocusConfig = {
 			BackgroundTransparency = 0.98,
+		},
+	},
+	Destructive = {
+		TextColor3 = Color3.fromRGB(255, 255, 255),
+		BackgroundColor3 = Color3.fromRGB(220, 38, 38), -- Red color
+		BackgroundTransparency = 0,
+		BorderColor3 = Color3.fromRGB(0, 0, 0),
+		BorderSizePixel = 0,
+		HoverConfig = {
+			BackgroundColor3 = Color3.fromRGB(185, 28, 28), -- Darker red on hover
+			BackgroundTransparency = 0,
+		},
+		FocusConfig = {
+			BackgroundColor3 = Color3.fromRGB(153, 27, 27), -- Even darker red on focus
+			BackgroundTransparency = 0,
 		},
 	},
 }
