@@ -457,7 +457,27 @@ function Library:Load(cfgs)
 	-- Button event connections with enhanced destroy
 	AddConnection(minimizebtn.MouseButton1Click, ToggleVisibility)
 	AddConnection(closebtn.MouseButton1Click, function()
-		Library:ForceDestroy() -- Use enhanced destroy method
+		-- Show confirmation dialog before closing
+		Library:Dialog({
+			Title = "Confirm Close",
+			Content = "Are you sure you want to close this window?",
+			Buttons = {
+				{
+					Title = "Cancel",
+					Variant = "Ghost",
+					Callback = function()
+						-- Dialog will close automatically, no action needed
+					end
+				},
+				{
+					Title = "Close",
+					Variant = "Destructive", -- This will make it red
+					Callback = function()
+						Library:ForceDestroy() -- Use enhanced destroy method
+					end
+				}
+			}
+		})
 	end)
 
 	-- ===== TAB FRAME (SIDEBAR) =====
@@ -1828,6 +1848,21 @@ local ButtonStyles = {
 		},
 		FocusConfig = {
 			BackgroundTransparency = 0.98,
+		},
+	},
+	Destructive = {
+		TextColor3 = Color3.fromRGB(255, 255, 255),
+		BackgroundColor3 = Color3.fromRGB(220, 38, 38), -- Red color
+		BackgroundTransparency = 0,
+		BorderColor3 = Color3.fromRGB(0, 0, 0),
+		BorderSizePixel = 0,
+		HoverConfig = {
+			BackgroundColor3 = Color3.fromRGB(185, 28, 28), -- Darker red on hover
+			BackgroundTransparency = 0,
+		},
+		FocusConfig = {
+			BackgroundColor3 = Color3.fromRGB(153, 27, 27), -- Even darker red on focus
+			BackgroundTransparency = 0,
 		},
 	},
 }
