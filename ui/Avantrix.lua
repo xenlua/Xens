@@ -2993,12 +2993,20 @@ local Components = script.Parent.Parent.components
 
 local Create = Tools.Create
 local AddConnection = Tools.AddConnection
+
+-- FIXED: Enhanced rounding function for decimal increments
 local function Round(Number, Factor)
-    local Result = math.floor(Number / Factor + (math.sign(Number) * 0.5)) * Factor
-    if Result < 0 then
-        Result = Result + Factor
+    -- Handle decimal factors properly
+    local multiplier = 1 / Factor
+    local result = math.floor(Number * multiplier + 0.5) / multiplier
+    
+    -- Format to avoid floating point precision issues
+    if Factor < 1 then
+        local decimalPlaces = string.len(tostring(Factor):match("%.(%d+)") or "")
+        return tonumber(string.format("%." .. decimalPlaces .. "f", result))
+    else
+        return math.floor(result + 0.5)
     end
-    return Result
 end
 
 local Element = {}
@@ -3010,10 +3018,11 @@ function Element:New(Idx, Config)
     assert(Config.Title, "Slider - Missing Title")
     Config.Description = Config.Description or nil
 
-    Config.Min = Config.Min or 10
-    Config.Max = Config.Max or 20
-    Config.Increment = Config.Increment or 1
-    Config.Default = Config.Default or 0
+    Config.Min = Config.Min or 1.0
+    Config.Max = Config.Max or 2.0
+    -- FIXED: Default increment for decimal values
+    Config.Increment = Config.Increment or 0.1
+    Config.Default = Config.Default or Config.Min
     Config.IgnoreFirst = Config.IgnoreFirst or false
 
     local Slider = {
@@ -3034,7 +3043,7 @@ function Element:New(Idx, Config)
     local ValueText = Create("TextLabel", {
         Font = Enum.Font.GothamMedium,
         RichText = true,
-        Text = "fix it good pls",
+        Text = "1.0",
         ThemeProps = {
             TextColor3 = "titlecolor",
         },
@@ -3125,7 +3134,26 @@ function Element:New(Idx, Config)
 
     function Slider:Set(Value, ignore)
         self.Value = math.clamp(Round(Value, Config.Increment), Config.Min, Config.Max)
-        ValueText.Text = string.format("%s<font transparency='0.5'>/%s </font>", tostring(self.Value), Config.Max)
+        
+        -- FIXED: Better formatting for decimal values
+        local displayValue
+        if Config.Increment < 1 then
+            local decimalPlaces = string.len(tostring(Config.Increment):match("%.(%d+)") or "")
+            displayValue = string.format("%." .. decimalPlaces .. "f", self.Value)
+        else
+            displayValue = tostring(math.floor(self.Value))
+        end
+        
+        -- FIXED: Better max value formatting
+        local maxDisplayValue
+        if Config.Increment < 1 then
+            local decimalPlaces = string.len(tostring(Config.Increment):match("%.(%d+)") or "")
+            maxDisplayValue = string.format("%." .. decimalPlaces .. "f", Config.Max)
+        else
+            maxDisplayValue = tostring(math.floor(Config.Max))
+        end
+        
+        ValueText.Text = string.format("%s<font transparency='0.5'>/%s</font>", displayValue, maxDisplayValue)
         
         local newPosition = (self.Value - Config.Min) / (Config.Max - Config.Min)
         
