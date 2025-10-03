@@ -357,15 +357,20 @@ function FlagsManager:Save(name)
         antiAFK = FlagsManager.AntiAFK.Enabled
     }
 
-    for idx, option in next, FlagsManager.Flags do
-        if not FlagsManager.Parser[option.Type] then
-            continue
-        end
-        if FlagsManager.Ignore[idx] then
-            continue
-        end
+    if FlagsManager.Flags then
+        for idx, option in next, FlagsManager.Flags do
+            if not FlagsManager.Parser[option.__type or option.Type] then
+                continue
+            end
+            if FlagsManager.Ignore[idx] then
+                continue
+            end
 
-        table.insert(data.objects, FlagsManager.Parser[option.Type].Save(idx, option))
+            local elementType = option.__type or option.Type
+            if FlagsManager.Parser[elementType] then
+                table.insert(data.objects, FlagsManager.Parser[elementType].Save(idx, option))
+            end
+        end
     end
 
     local success, encoded = pcall(httpService.JSONEncode, httpService, data)
@@ -485,9 +490,31 @@ function FlagsManager:SetAutoLoadConfig(configName)
     end
 end
 
-function FlagsManager:SetLibrary(library)
+function FlagsManager:SetLibrary(library, window)
     FlagsManager.Library = library
-    FlagsManager.Flags = library.Flags
+    FlagsManager.Window = window
+
+    if window and window.Flags then
+        FlagsManager.Flags = window.Flags
+    elseif library and library.Flags then
+        FlagsManager.Flags = library.Flags
+    else
+        FlagsManager.Flags = {}
+    end
+end
+
+function FlagsManager:RegisterFlag(name, element)
+    if not FlagsManager.Flags then
+        FlagsManager.Flags = {}
+    end
+    FlagsManager.Flags[name] = element
+end
+
+function FlagsManager:GetFlag(name)
+    if FlagsManager.Flags then
+        return FlagsManager.Flags[name]
+    end
+    return nil
 end
 
 local function SafeNotification(title, message, duration)
@@ -516,9 +543,8 @@ function FlagsManager:InitSaveSystem(tab)
     end
 
     if not FlagsManager.Flags then
-        warn("FlagsManager:InitSaveSystem - Flags is not set. Library may not be properly initialized.")
-        SafeNotification('Error', 'Flags not initialized properly.', 5)
-        return false
+        warn("FlagsManager:InitSaveSystem - Flags is not set. Initializing empty Flags table.")
+        FlagsManager.Flags = {}
     end
 
     local success = pcall(function()
