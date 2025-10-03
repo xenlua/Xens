@@ -593,7 +593,50 @@ function FlagsManager:InitSaveSystem(tab)
     end)
 
     tab:Section({
-        Title = gradient("Configuration Manager"),
+        Title = gradient("Load Configuration"),
+        TextSize = 16,
+    })
+
+    local configList = {}
+    pcall(function()
+        configList = FlagsManager:RefreshConfigList()
+    end)
+
+    local ConfigDropdown = tab:Dropdown({
+        Title = "Select Config",
+        Values = configList,
+        Value = {},
+        Multi = false,
+        AllowNone = true,
+        Callback = function(value)
+            if value and #value > 0 then
+                SaveManager_ConfigName = value[1]
+            else
+                SaveManager_ConfigName = ""
+            end
+        end
+    })
+
+    tab:Button({
+        Title = "Refresh Config List",
+        Desc = "Refresh the dropdown list",
+        Icon = "refresh-cw",
+        Callback = function()
+            local updatedConfigs = {}
+            pcall(function()
+                updatedConfigs = FlagsManager:RefreshConfigList()
+            end)
+
+            if ConfigDropdown.Refresh then
+                ConfigDropdown:Refresh(updatedConfigs)
+            end
+
+            SafeNotification('Refreshed', 'Config list updated (' .. #updatedConfigs .. ' configs found)', 2)
+        end,
+    })
+
+    tab:Section({
+        Title = gradient("Save Configuration"),
         TextSize = 16,
     })
 
@@ -606,26 +649,8 @@ function FlagsManager:InitSaveSystem(tab)
         end
     })
 
-    local configList = {}
-    pcall(function()
-        configList = FlagsManager:RefreshConfigList()
-    end)
-
-    local ConfigDropdown = tab:Dropdown({
-        Title = "Configuration List",
-        Values = configList,
-        Value = {},
-        Multi = false,
-        AllowNone = true,
-        Callback = function(value)
-            if value and #value > 0 then
-                SaveManager_ConfigName = value[1]
-            end
-        end
-    })
-
     tab:Button({
-        Title = "Create Configuration",
+        Title = "Save New Config",
         Desc = "Save current settings as new config",
         Icon = "plus",
         Callback = function()
@@ -645,12 +670,7 @@ function FlagsManager:InitSaveSystem(tab)
                 return
             end
 
-            SafeNotification('Success', string.format('Created config "%s"', name), 3)
-
-            pcall(function()
-                local newList = FlagsManager:RefreshConfigList()
-                ConfigDropdown:Refresh(newList)
-            end)
+            SafeNotification('Success', string.format('Config "%s" saved successfully! Click Refresh to update dropdown.', name), 3)
         end,
     })
 
@@ -680,14 +700,14 @@ function FlagsManager:InitSaveSystem(tab)
     })
 
     tab:Button({
-        Title = "Save Configuration",
+        Title = "Overwrite Config",
         Desc = "Save current settings to selected config",
         Icon = "save",
         Callback = function()
             local name = SaveManager_ConfigName
 
             if not name or name == "" then
-                SafeNotification('Error', 'Please select a config to save', 3)
+                SafeNotification('Error', 'Please select a config to overwrite', 3)
                 return
             end
 
@@ -700,12 +720,12 @@ function FlagsManager:InitSaveSystem(tab)
                 return
             end
 
-            SafeNotification('Success', string.format('Saved config "%s"', name), 3)
+            SafeNotification('Success', string.format('Config "%s" overwritten!', name), 3)
         end,
     })
 
     tab:Button({
-        Title = "Delete Configuration",
+        Title = "Delete Config",
         Desc = "Delete selected config file",
         Icon = "trash-2",
         Callback = function()
@@ -736,32 +756,48 @@ function FlagsManager:InitSaveSystem(tab)
                 end)
             end
 
-            SafeNotification('Success', string.format('Deleted config "%s"', name), 3)
-
-            pcall(function()
-                local newList = FlagsManager:RefreshConfigList()
-                ConfigDropdown:Refresh(newList)
-            end)
+            SafeNotification('Success', string.format('Config "%s" deleted! Click Refresh to update dropdown.', name), 3)
+            SaveManager_ConfigName = ""
         end,
     })
 
-    tab:Button({
-        Title = "Refresh List",
-        Desc = "Refresh configuration list",
-        Icon = "refresh-cw",
-        Callback = function()
-            pcall(function()
-                local newList = FlagsManager:RefreshConfigList()
-                ConfigDropdown:Refresh(newList)
-            end)
-            SafeNotification('Info', 'Configuration list refreshed', 2)
-        end,
+    tab:Section({
+        Title = gradient("Auto Load"),
+        TextSize = 16,
     })
+
+    local function getAutoLoadStatusText()
+        local currentAutoLoad = ""
+        pcall(function()
+            currentAutoLoad = FlagsManager:GetAutoLoadConfig()
+        end)
+
+        if currentAutoLoad and currentAutoLoad ~= "" and currentAutoLoad ~= "nil" then
+            return currentAutoLoad
+        else
+            return "None"
+        end
+    end
 
     local AutoLoadParagraph = tab:Paragraph({
-        Title = "Auto Load Config",
-        Desc = "Current Auto Load: " .. (SaveManager_AutoLoadConfig ~= "" and SaveManager_AutoLoadConfig or "None"),
+        Title = "Auto Load Status",
+        Desc = "Current: None",
     })
+
+    local function updateAutoLoadStatus()
+        local status = getAutoLoadStatusText()
+        if status ~= "None" then
+            if AutoLoadParagraph.SetDesc then
+                AutoLoadParagraph:SetDesc("Current: " .. status)
+            end
+        else
+            if AutoLoadParagraph.SetDesc then
+                AutoLoadParagraph:SetDesc("Current: None")
+            end
+        end
+    end
+
+    updateAutoLoadStatus()
 
     tab:Button({
         Title = "Set Auto Load",
@@ -770,40 +806,75 @@ function FlagsManager:InitSaveSystem(tab)
         Callback = function()
             local name = SaveManager_ConfigName
 
-            if not name or name == "" then
-                pcall(function()
-                    FlagsManager:SetAutoLoadConfig("")
-                    if AutoLoadParagraph.SetDesc then
-                        AutoLoadParagraph:SetDesc("Current Auto Load: None")
-                    end
-                end)
-                SafeNotification('Info', 'Auto load config cleared', 3)
-            else
+            if name and name ~= "" then
                 pcall(function()
                     FlagsManager:SetAutoLoadConfig(name)
-                    if AutoLoadParagraph.SetDesc then
-                        AutoLoadParagraph:SetDesc("Current Auto Load: " .. name)
-                    end
                 end)
-                SafeNotification('Success', string.format('Set auto load config to "%s"', name), 3)
+
+                task.wait(0.3)
+                updateAutoLoadStatus()
+
+                SafeNotification('Auto Load Set', string.format('Config "%s" will auto load on startup', name), 3)
+            else
+                SafeNotification('Info', 'Please select a config from dropdown first', 3)
             end
         end,
     })
 
-    if SaveManager_AutoLoadConfig ~= "" then
-        task.spawn(function()
-            task.wait(3)
-            local success, err = pcall(function()
-                return FlagsManager:Load(SaveManager_AutoLoadConfig)
+    task.spawn(function()
+        task.wait(2)
+
+        local autoLoadConfig = ""
+        pcall(function()
+            autoLoadConfig = FlagsManager:GetAutoLoadConfig()
+        end)
+
+        if autoLoadConfig and autoLoadConfig ~= "" and autoLoadConfig ~= "nil" then
+            local currentConfigs = {}
+            pcall(function()
+                currentConfigs = FlagsManager:RefreshConfigList()
             end)
 
-            if success and err then
-                SafeNotification('Auto Load', string.format('Successfully loaded config "%s"', SaveManager_AutoLoadConfig), 3)
-            else
-                SafeNotification('Auto Load', string.format('Failed to load config "%s": %s', SaveManager_AutoLoadConfig, tostring(err)), 3)
+            local configExists = false
+            for _, configName in ipairs(currentConfigs) do
+                if configName == autoLoadConfig then
+                    configExists = true
+                    break
+                end
             end
-        end)
-    end
+
+            if not configExists then
+                SafeNotification('Auto Load Failed', string.format('Config "%s" not found', autoLoadConfig), 3)
+                return
+            end
+
+            SaveManager_ConfigName = autoLoadConfig
+
+            if ConfigDropdown then
+                pcall(function()
+                    ConfigDropdown:Refresh(currentConfigs)
+                    task.wait(0.2)
+                    if ConfigDropdown.Select then
+                        ConfigDropdown:Select(autoLoadConfig)
+                    end
+                end)
+            end
+
+            local loadSuccess, loadErr = pcall(function()
+                return FlagsManager:Load(autoLoadConfig)
+            end)
+
+            task.wait(0.5)
+
+            if loadSuccess and loadErr then
+                task.wait(0.3)
+                updateAutoLoadStatus()
+                SafeNotification('Auto Loaded', string.format('Config "%s" loaded!', autoLoadConfig), 3)
+            else
+                SafeNotification('Auto Load Failed', string.format('Error: %s', tostring(loadErr)), 3)
+            end
+        end
+    end)
 
     SafeNotification('Success', 'Save system initialized successfully', 2)
     return true
