@@ -4595,6 +4595,35 @@ function MacLib:Window(Settings)
 				SelectCurrentTab()
 			end)
 
+			local draggingTab = false
+			local dragStartPos = nil
+			local tabStartPos = nil
+
+			tabSwitcher.InputBegan:Connect(function(input)
+				if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+					draggingTab = true
+					dragStartPos = input.Position
+					tabStartPos = tabSwitcher.Position
+				end
+			end)
+
+			UserInputService.InputChanged:Connect(function(input)
+				if draggingTab and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+					if dragStartPos then
+						local delta = input.Position - dragStartPos
+						tabSwitcher.Position = tabStartPos + UDim2.fromOffset(delta.X, delta.Y)
+					end
+				end
+			end)
+
+			tabSwitcher.InputEnded:Connect(function(input)
+				if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+					draggingTab = false
+					dragStartPos = nil
+					tabStartPos = nil
+				end
+			end)
+
 			function TabFunctions:Select()
 				SelectCurrentTab()
 			end
