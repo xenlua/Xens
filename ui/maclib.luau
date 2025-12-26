@@ -1,6 +1,6 @@
 local MacLib = { 
 	Options = {}, 
-	Folder = "Maclib", 
+	Folder = "Avantrix", 
 	GetService = function(service)
 		return cloneref and cloneref(game:GetService(service)) or game:GetService(service)
 	end
