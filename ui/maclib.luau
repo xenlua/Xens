@@ -1,10 +1,12 @@
 local MacLib = {
 	Options = {},
-	Folder = "Maclib", 
+	Folder = "Avantrix",
 	GetService = function(service)
 		return cloneref and cloneref(game:GetService(service)) or game:GetService(service)
 	end
 }
+
+local Avantrix = MacLib
 
 --// Services
 local TweenService = MacLib.GetService("TweenService")
@@ -5829,7 +5831,7 @@ function MacLib:Demo()
 		Text = "Sub-Label. Lorem ipsum odor amet, consectetuer adipiscing elit."
 	})
 
-	MacLib:SetFolder("Avantrix")
+	MacLib:SetFolder("avantrix")
 	tabs.Settings:InsertConfigSection()
 
 	Window.onUnloaded(function()
